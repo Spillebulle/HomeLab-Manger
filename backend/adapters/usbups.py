@@ -244,6 +244,41 @@ _DEFAULT_PID = 0xFFFF
 # ConfigActivePower itself (this unit doesn't), to derive watts from load %.
 _DEFAULT_NOMINAL_WATTS = 1320
 
+# Physical plausibility bounds (see USBUPSAdapter._sanitize). A reading outside
+# its range is a decode of garbage bytes, not real telemetry, so it's dropped.
+# Upper bounds catch the torn-read spikes; lower bounds stay permissive (0 V /
+# 0 Hz are legitimate mains-lost readings) so a real outage is never hidden.
+_SANITY_BOUNDS = {
+    "load_pct":            (0, 200),     # allow overload headroom
+    "charge_pct":          (0, 100),
+    "runtime_sec":         (0, 86400),   # 24h ceiling
+    "input_voltage":       (0, 300),     # ~230 V mains; 8932 V ⇒ junk
+    "config_voltage":      (0, 300),
+    "frequency":           (0, 100),     # ~50 Hz; 8932.5 Hz ⇒ junk
+    "temperature":         (-40, 150),
+    "active_power":        (0, 100000),
+    "config_active_power": (0, 100000),
+}
+
+# Per-poll jump guard for the persisted metrics series (graph only). A value
+# that leaps more than the step from the last accepted one is treated as a torn
+# read and dropped - but never more than _MAX_CONSEC_REJECT polls in a row, so a
+# genuine sustained change still reaches the graph after a couple of cycles.
+# Keyed by (vid, pid); instances are rebuilt each poll, so state must be module-
+# level. Status/state/flags (and thus outage detection) are NOT filtered here.
+# charge_pct is tight (10): a real battery's charge moves at most a few % per
+# 60s poll, so the observed 100→80/75 single-poll dips are unambiguously garbage.
+# load_pct stays loose (real load can swing instantly when a device powers on/
+# off); its torn-read dips are usually part of a wrong-report cluster the
+# report-id echo check already rejects.
+_METRIC_MAX_STEP = {
+    "load_pct": 60, "watts": 800, "charge_pct": 10,
+    "runtime_sec": 600, "input_voltage": 60,
+}
+_MAX_CONSEC_REJECT = 2
+_LAST_METRIC: dict[tuple[int, int], dict[str, float]] = {}
+_METRIC_REJECT: dict[tuple[int, int], dict[str, int]] = {}
+
 
 # ── HID report descriptor parser ──────────────────────────────────────────────
 
@@ -652,8 +687,16 @@ class USBUPSAdapter(BaseAdapter):
                     # Numbered reports (report_id > 0) echo the id as raw[0];
                     # un-numbered reports (id 0) have no prefix byte, so don't
                     # strip one or we'd drop a real data byte and misalign every
-                    # bit offset.
-                    payload = bytes(raw[1:]) if field.report_id else bytes(raw)
+                    # bit offset. This flaky Phoenixtec stack sometimes answers a
+                    # GET_REPORT with a DIFFERENT report's bytes - reject the
+                    # mismatch rather than decode another report's data as this
+                    # usage (one source of the plausible-but-wrong single-poll
+                    # readings: charge/load/volts all "dropping" in one cycle).
+                    if field.report_id and raw[0] != field.report_id:
+                        logger.debug("UPS report-id mismatch: asked %s got %s",
+                                     field.report_id, raw[0])
+                    else:
+                        payload = bytes(raw[1:]) if field.report_id else bytes(raw)
             except Exception as exc:
                 logger.debug("UPS read report %s failed: %s", key, exc)
             cache[key] = payload
@@ -685,7 +728,7 @@ class USBUPSAdapter(BaseAdapter):
             v = value(usage)
             return None if v is None else bool(v)
 
-        return {
+        r = {
             "vid": vid, "pid": pid,
             "load_pct":      value(U_PERCENT_LOAD),
             "active_power":  value(U_ACTIVE_POWER, physical=True),
@@ -708,8 +751,25 @@ class USBUPSAdapter(BaseAdapter):
             "model":   dev_get_string(dev, "get_product_string"),
             "serial":  dev_get_string(dev, "get_serial_number_string"),
         }
+        self._sanitize(r)
+        return r
 
     # ── Shaping ─────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _sanitize(r: dict) -> None:
+        """Null out any numeric reading outside physical bounds. This flaky HID
+        stack occasionally returns torn/garbage bytes that decode to absurd
+        values (the 8932 V / 8932.5 Hz spikes); recording them would poison the
+        status cards and the graph history. Out-of-range ⇒ None, so the field is
+        simply omitted that poll rather than charted. Lower bounds stay at 0 (a
+        0 V mains reading is a legitimate outage signal), so this never masks a
+        real power loss - it only clips the physically-impossible high end."""
+        for name, (lo, hi) in _SANITY_BOUNDS.items():
+            v = r.get(name)
+            if isinstance(v, (int, float)) and not (lo <= v <= hi):
+                logger.debug("UPS %s=%s out of [%s,%s] - dropped", name, v, lo, hi)
+                r[name] = None
 
     def _watts(self, r: dict) -> float | None:
         """Real power. Prefer the UPS's own live ActivePower; otherwise derive
@@ -799,7 +859,35 @@ class USBUPSAdapter(BaseAdapter):
             "runtime_sec": r.get("runtime_sec"),
             "input_voltage": r.get("input_voltage"),
         }
-        return {k: v for k, v in out.items() if isinstance(v, (int, float))}
+        out = {k: v for k, v in out.items() if isinstance(v, (int, float))}
+        return self._reject_metric_jumps((r.get("vid", 0), r.get("pid", 0)), out)
+
+    @staticmethod
+    def _reject_metric_jumps(key: tuple[int, int], out: dict) -> dict:
+        """Drop a single-poll metric that jumps implausibly far from the last
+        accepted one - the fingerprint of a torn/garbage HID read on this flaky
+        stack (e.g. charge 100→80 for one poll, then back). Never suppress more
+        than _MAX_CONSEC_REJECT in a row, so a genuine sustained change still
+        reaches the graph after a couple of polls. Scoped to the persisted
+        metrics series; status/state/flags are deliberately left untouched so a
+        real outage signal is never filtered out."""
+        last = _LAST_METRIC.setdefault(key, {})
+        rej = _METRIC_REJECT.setdefault(key, {})
+        kept = {}
+        for name, v in out.items():
+            step = _METRIC_MAX_STEP.get(name)
+            prev = last.get(name)
+            if (step is not None and prev is not None
+                    and abs(v - prev) > step
+                    and rej.get(name, 0) < _MAX_CONSEC_REJECT):
+                rej[name] = rej.get(name, 0) + 1
+                logger.debug("UPS metric %s=%s rejected (jump from %s, #%d)",
+                             name, v, prev, rej[name])
+                continue
+            rej[name] = 0
+            last[name] = v
+            kept[name] = v
+        return kept
 
     # ── Preflight (USB open test instead of a network probe) ──────────────────
 
