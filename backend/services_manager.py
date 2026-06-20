@@ -241,8 +241,9 @@ async def provision_service(service_id: int, on_update=None) -> None:
     if service_id in _in_flight:
         return
     _in_flight.add(service_id)
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()   # inside the try so a failure here still discards _in_flight
         svc = db.query(Service).filter(Service.id == service_id).first()
         if svc is None:
             return
@@ -354,6 +355,11 @@ async def provision_service(service_id: int, on_update=None) -> None:
                                 await asyncio.sleep(_CERT_RETRY_DELAY)
                     if cert is None:
                         raise last_exc or NPMError("certificate creation failed")
+                    # Stamp ownership the moment the cert exists, before the
+                    # attach. If attach then fails, deprovision still knows to
+                    # delete the cert we created instead of orphaning it in NPM.
+                    svc.npm_certificate_id = cert["id"]
+                    db.commit()
                 await npm.attach_certificate(svc.npm_proxy_host_id, cert["id"],
                                              _ssl_opts(svc))
                 svc.npm_certificate_id = cert["id"]
@@ -375,7 +381,8 @@ async def provision_service(service_id: int, on_update=None) -> None:
     except Exception:
         logger.exception("provision_service(%d) crashed", service_id)
     finally:
-        db.close()
+        if db is not None:
+            db.close()
         _in_flight.discard(service_id)
 
 

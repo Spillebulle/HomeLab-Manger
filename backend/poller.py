@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from .database import SessionLocal
+from .timeutil import utcnow
 from .models import Device, DeviceCache, DeviceMetric, ShutdownRule
 from .adapters import get_adapter
 from .events import (
@@ -83,7 +84,7 @@ def _upsert_cache(db, device_id: int, key: str, data: str | None, error: str | N
     # SELECT and both INSERT, leaving duplicate rows that confuse the cache
     # reader. The unique index on (device_id, cache_key) is what makes this
     # atomic; without it the ON CONFLICT clause has nothing to match against.
-    now = datetime.utcnow()
+    now = utcnow()
     if data is not None:
         stmt = sqlite_insert(DeviceCache).values(
             device_id=device_id, cache_key=key, data=data, error=None, updated_at=now,
@@ -209,7 +210,15 @@ async def _evaluate_shutdown_rules(db, ups_device, status_data: dict) -> None:
         if rearmed:
             for r in rearmed:
                 r.last_triggered_at = None
-            db.commit()
+            try:
+                db.commit()
+            except Exception as exc:
+                # If we can't persist the re-arm, leave the rules as-fired
+                # rather than firing them off stale in-memory state next cycle.
+                db.rollback()
+                logger.error("OUTAGE: failed to persist re-arm for UPS %r: %s",
+                             ups_device.name, exc)
+                return
             logger.warning("UPS %r back on mains - re-armed %d shutdown rule(s)",
                            ups_device.name, len(rearmed))
             await emit_event(db, ups_device, EV_ACTION,
@@ -225,9 +234,22 @@ async def _evaluate_shutdown_rules(db, ups_device, status_data: dict) -> None:
             continue  # already fired this outage
         if not _rule_threshold_met(rule, charge_pct, runtime_sec):
             continue
+        # Reserve the once-per-outage slot BEFORE sending the destructive
+        # action: stamp + commit first. If that commit fails we skip the fire
+        # entirely - far better to miss one shutdown than to power-off a real
+        # machine, then fail to persist the guard, and re-fire it every poll
+        # for the rest of the outage (the DB is under heavy contention exactly
+        # when an outage drives the fast UPS cadence).
+        rule.last_triggered_at = utcnow()
+        try:
+            db.commit()
+        except Exception as exc:
+            db.rollback()
+            logger.error("OUTAGE: failed to persist trigger guard for rule %d on "
+                         "UPS %r - skipping fire to avoid a repeat shutdown: %s",
+                         rule.id, ups_device.name, exc)
+            continue
         await _execute_shutdown_rule(db, rule, ups_device)
-        rule.last_triggered_at = datetime.utcnow()
-        db.commit()
         # Inter-device delay: give this target time to actually go down before
         # the next rule fires (e.g. guests before their hypervisor). Capped so a
         # mistyped value can't wedge this UPS's poll task for an absurd duration.
@@ -267,19 +289,21 @@ async def _emit_transition_events(db, device, status_data, status_ok: bool,
     did = device.id
 
     # Offline/online - debounced so a single transient failure isn't an event.
+    # The trackers advance only when the event actually committed, so a failed
+    # event write doesn't also swallow the *next* genuine transition.
     if status_ok:
         if _dev_offline.get(did):
-            _dev_offline[did] = False
-            await emit_event(db, device, EV_DEVICE_ONLINE,
-                             f"{device.name} is back online", severity="info")
+            if await emit_event(db, device, EV_DEVICE_ONLINE,
+                                f"{device.name} is back online", severity="info"):
+                _dev_offline[did] = False
         _dev_fail_count[did] = 0
     else:
         _dev_fail_count[did] = _dev_fail_count.get(did, 0) + 1
         if _dev_fail_count[did] >= _OFFLINE_THRESHOLD and not _dev_offline.get(did):
-            _dev_offline[did] = True
-            await emit_event(db, device, EV_DEVICE_OFFLINE,
-                             f"{device.name} is offline",
-                             detail=status_error, severity="warning")
+            if await emit_event(db, device, EV_DEVICE_OFFLINE,
+                                f"{device.name} is offline",
+                                detail=status_error, severity="warning"):
+                _dev_offline[did] = True
 
     # UPS state changes - only for UPS devices, only on a fresh read.
     if device.device_type != "ups" or not status_ok or not isinstance(status_data, dict):
@@ -288,8 +312,8 @@ async def _emit_transition_events(db, device, status_data, status_ok: bool,
     prev = _ups_prev_state.get(did)
     if new_state == prev:
         return
-    _ups_prev_state[did] = new_state
     if prev is None:
+        _ups_prev_state[did] = new_state
         return  # first observation - set baseline silently, don't alert
     charge = status_data.get("charge_pct")
     runtime = status_data.get("runtime_text")
@@ -299,15 +323,21 @@ async def _emit_transition_events(db, device, status_data, status_ok: bool,
     if runtime:
         ctx.append(f"runtime {runtime}")
     ctx = " · ".join(ctx) or None
+    emitted = True
     if new_state == "on_battery":
-        await emit_event(db, device, EV_UPS_ON_BATTERY,
-                         f"{device.name}: on battery (mains lost)", ctx, "warning")
+        emitted = await emit_event(db, device, EV_UPS_ON_BATTERY,
+                                   f"{device.name}: on battery (mains lost)", ctx, "warning")
     elif new_state == "low_battery":
-        await emit_event(db, device, EV_UPS_LOW,
-                         f"{device.name}: battery LOW", ctx, "critical")
+        emitted = await emit_event(db, device, EV_UPS_LOW,
+                                   f"{device.name}: battery LOW", ctx, "critical")
     elif new_state == "online":
-        await emit_event(db, device, EV_UPS_ONLINE,
-                         f"{device.name}: back on mains power", ctx, "info")
+        emitted = await emit_event(db, device, EV_UPS_ONLINE,
+                                   f"{device.name}: back on mains power", ctx, "info")
+    # Advance the baseline only on a committed event so a dropped write doesn't
+    # also mask the next transition. (A non-on/low/online state - shouldn't
+    # happen - still advances, since emitted stays True.)
+    if emitted:
+        _ups_prev_state[did] = new_state
 
 
 async def poll_device(device_id: int, on_update=None):
@@ -332,14 +362,19 @@ async def poll_device(device_id: int, on_update=None):
             for key in adapter.get_supported_cache_keys():
                 try:
                     data = await adapter.fetch(key)
-                    _upsert_cache(db, device_id, key, json.dumps(data), None)
+                    # default=str so an adapter accidentally returning a
+                    # datetime/bytes/etc. degrades to a string in the cache
+                    # instead of raising here - which would wrongly mark the
+                    # key (e.g. status) as a failed poll and, for a UPS, skip
+                    # shutdown evaluation on a device that's actually reachable.
+                    _upsert_cache(db, device_id, key, json.dumps(data, default=str), None)
                     if key == "status":
                         status_data = data
                         status_seen = True
                     # The `metrics` key doubles as the time-series source -
                     # persist its numeric members for graphing.
                     if key == _METRICS_CACHE_KEY:
-                        _record_metrics(db, device_id, data, datetime.utcnow())
+                        _record_metrics(db, device_id, data, utcnow())
                 except Exception as exc:
                     logger.warning("poll %s/%s failed: %s", device.name, key, exc)
                     _upsert_cache(db, device_id, key, None, str(exc))
@@ -430,6 +465,12 @@ async def poll_loop(on_update=None):
             live = {dev_id for dev_id, _ in devices}
             for stale in [k for k in last_polled if k not in live]:
                 last_polled.pop(stale, None)
+            # Same for the module-level transition trackers, so a deleted (or
+            # disabled) device doesn't leak state - and a recreated id can't
+            # inherit a stale offline/UPS state from its predecessor.
+            for d in (_dev_offline, _dev_fail_count, _ups_prev_state):
+                for stale in [k for k in d if k not in live]:
+                    d.pop(stale, None)
 
             for device_id, interval in devices:
                 if device_id in in_flight:

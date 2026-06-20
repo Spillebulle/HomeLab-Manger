@@ -31,6 +31,7 @@ from .schemas import (
 from . import events as events_mod
 from . import poller
 from . import services_manager
+from .timeutil import utcnow
 from .services_namecheap import NamecheapError
 from .adapters import get_adapter
 from .adapters import oui as oui_db
@@ -74,22 +75,29 @@ class ConnectionManager:
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
 
+    async def _send_one(self, connection: WebSocket, message: dict) -> bool:
+        """Send to one client; return False (and drop it) on timeout/error."""
+        try:
+            await asyncio.wait_for(connection.send_json(message),
+                                   timeout=self._SEND_TIMEOUT_SECONDS)
+            return True
+        except asyncio.TimeoutError:
+            logger.warning("WebSocket send timed out after %.1fs - dropping client",
+                           self._SEND_TIMEOUT_SECONDS)
+        except Exception as exc:
+            logger.debug("WebSocket send failed (%s) - dropping client", exc)
+        return False
+
     async def broadcast_json(self, message: dict):
-        # Snapshot upfront so disconnect() mutating self.active_connections
-        # mid-iteration can't skip a connection. asyncio.wait_for caps the
-        # per-send budget so a single slow client doesn't stall the broadcast.
-        for connection in list(self.active_connections):
-            try:
-                await asyncio.wait_for(
-                    connection.send_json(message),
-                    timeout=self._SEND_TIMEOUT_SECONDS,
-                )
-            except asyncio.TimeoutError:
-                logger.warning("WebSocket send timed out after %.1fs - dropping client",
-                               self._SEND_TIMEOUT_SECONDS)
-                self.disconnect(connection)
-            except Exception as exc:
-                logger.debug("WebSocket send failed (%s) - dropping client", exc)
+        # Fan out concurrently: a serial loop would let one wedged client delay
+        # every other client by up to the send timeout each, stalling the
+        # broadcast (and the poll cycle that drives it) by N x timeout.
+        conns = list(self.active_connections)
+        if not conns:
+            return
+        results = await asyncio.gather(*(self._send_one(c, message) for c in conns))
+        for connection, ok in zip(conns, results):
+            if not ok:
                 self.disconnect(connection)
 
 manager = ConnectionManager()
@@ -135,7 +143,7 @@ def _device_or_404(device_id: int, db: Session) -> Device:
 def _iso_z(dt: datetime) -> str:
     """Render a naive-UTC timestamp as RFC 3339 with a trailing `Z`. Every
     timestamp this API emits goes through here. Our stored timestamps are naive
-    UTC (`datetime.utcnow()`); without the `Z` downstream consumers (browsers,
+    UTC (`utcnow()`); without the `Z` downstream consumers (browsers,
     Grafana, anything calling `new Date()`) guess the zone and shift the value."""
     return dt.replace(tzinfo=timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -227,6 +235,13 @@ def _login_record_fail(key: str) -> None:
     now = time.monotonic()
     with _login_lock:
         _login_fails.setdefault(key, []).append(now)
+        # Opportunistic sweep: drop keys whose failures are all stale, so an
+        # IP-rotating attacker can't grow this dict without bound (each distinct
+        # source IP would otherwise leave a permanent entry).
+        stale = [k for k, ts in _login_fails.items()
+                 if all(now - t >= _LOGIN_WINDOW for t in ts)]
+        for k in stale:
+            del _login_fails[k]
 
 
 def _login_clear(key: str) -> None:
@@ -281,11 +296,18 @@ api = APIRouter(prefix="/api", dependencies=[Depends(current_user)])
 @api.get("/devices")
 def list_devices(db: Session = Depends(get_db)):
     devices = db.query(Device).all()
+    # Batch the status-cache lookup into one query instead of one per device -
+    # the SPA polls this endpoint every 30s and again on every WS tick, so an
+    # N+1 here scales the dashboard's DB cost with device count.
+    status_rows = (db.query(DeviceCache)
+                   .filter(DeviceCache.cache_key == "status",
+                           DeviceCache.device_id.in_([d.id for d in devices]))
+                   .all()) if devices else []
+    status_by_dev = {r.device_id: r for r in status_rows}
+
     result = []
     for d in devices:
-        status_row = db.query(DeviceCache).filter(
-            DeviceCache.device_id == d.id, DeviceCache.cache_key == "status"
-        ).first()
+        status_row = status_by_dev.get(d.id)
 
         status_data = None
         if status_row and status_row.data:
@@ -524,8 +546,13 @@ def _shutdown_actions_for(adapter_type: str) -> list[str]:
     return list(getattr(cls, "SHUTDOWN_ACTIONS", []) or [])
 
 
-def _serialize_rule(r: ShutdownRule, db: Session) -> dict:
-    t = db.query(Device).filter(Device.id == r.target_device_id).first()
+def _serialize_rule(r: ShutdownRule, db: Session, targets: dict | None = None) -> dict:
+    # `targets` (id → Device) lets the list endpoint avoid an N+1; single-rule
+    # callers omit it and we look the one target up directly.
+    if targets is not None:
+        t = targets.get(r.target_device_id)
+    else:
+        t = db.query(Device).filter(Device.id == r.target_device_id).first()
     return {
         "id": r.id,
         "ups_device_id": r.ups_device_id,
@@ -550,7 +577,10 @@ def list_shutdown_rules(ups_id: int, db: Session = Depends(get_db)):
     rules = (db.query(ShutdownRule)
              .filter(ShutdownRule.ups_device_id == ups_id)
              .order_by(ShutdownRule.priority, ShutdownRule.id).all())
-    return [_serialize_rule(r, db) for r in rules]
+    ids = {r.target_device_id for r in rules}
+    targets = ({d.id: d for d in db.query(Device).filter(Device.id.in_(ids)).all()}
+               if ids else {})
+    return [_serialize_rule(r, db, targets) for r in rules]
 
 
 @api.post("/devices/{ups_id}/shutdown-rules", status_code=201)
@@ -628,7 +658,9 @@ async def test_shutdown_plan(ups_id: int, db: Session = Depends(get_db)):
 
 
 @api.post("/devices/{device_id}/refresh")
-async def refresh_device(device_id: int, db: Session = Depends(get_db)):
+async def refresh_device(device_id: int):
+    # poll_device opens its own session; no need to hold an injected one open
+    # for the whole (possibly 20-30s CIMC) poll.
     await poller.poll_device(device_id, on_update=manager.broadcast_json)
     return {"ok": True}
 
@@ -677,7 +709,7 @@ def get_history(
     `max_points` are bucket-averaged. Shape:
     {from, to, metrics: {name: [[iso_ts, value], …]}}."""
     _device_or_404(device_id, db)
-    until = _parse_time_param(to_) or datetime.utcnow()
+    until = _parse_time_param(to_) or utcnow()
     since = _parse_time_param(from_)
     if since is None:
         since = until - timedelta(hours=max(0.0, hours))
@@ -716,13 +748,16 @@ def _parse_time_param(val: str | None) -> datetime | None:
     if not val or not val.strip():
         return None
     val = val.strip()
-    if val.lstrip("-").isdigit():
-        n = int(val)
-        # Grafana sends epoch *milliseconds*; bare seconds are ~1.7e9, ms ~1.7e12.
-        if abs(n) >= 100_000_000_000:  # 1e11 - anything larger is milliseconds
-            return datetime.utcfromtimestamp(n / 1000.0)
-        return datetime.utcfromtimestamp(n)
-    dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+    try:
+        if val.lstrip("-").isdigit():
+            n = int(val)
+            # Grafana sends epoch *milliseconds*; bare seconds are ~1.7e9, ms ~1.7e12.
+            secs = n / 1000.0 if abs(n) >= 100_000_000_000 else n  # >=1e11 ⇒ ms
+            return datetime.fromtimestamp(secs, timezone.utc).replace(tzinfo=None)
+        dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+    except (ValueError, OverflowError, OSError) as exc:
+        # Bad client input (garbage string, out-of-range epoch) → 400, not a 500.
+        raise HTTPException(status_code=400, detail=f"Invalid time value {val!r}: {exc}")
     if dt.tzinfo is not None:
         dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
@@ -821,7 +856,7 @@ def get_graph(
     if format not in ("long", "wide"):
         raise HTTPException(status_code=400, detail="format must be 'long' or 'wide'")
 
-    until = _parse_time_param(to) or datetime.utcnow()
+    until = _parse_time_param(to) or utcnow()
     start = _parse_time_param(from_)
     if start is None:
         start = until - timedelta(hours=max(0.0, hours))
@@ -1125,7 +1160,6 @@ def _rewrite_cimc_jnlp_for_proxy(body: str, device, creds: dict, request: Reques
     to an authenticated `/api/cimc-kvm-proxy/{id}/<file>?t=<token>` URL on
     our backend. Leaves codebase / icon / helpurl alone - they're not
     fetched by JWS in a way that exposes the HEAD-403 issue."""
-    import re
     port = int(creds.get("port", 443))
     proxy_base = str(request.base_url).rstrip("/") + f"/api/cimc-kvm-proxy/{device.id}"
     token = _mint_kvm_proxy_token(device.id)
@@ -1788,6 +1822,12 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        # Some transports raise a non-WebSocketDisconnect on abnormal close.
+        # Don't let it leak the connection into active_connections.
+        logger.debug("WebSocket receive ended abnormally: %s", exc)
+    finally:
         manager.disconnect(websocket)
 
 

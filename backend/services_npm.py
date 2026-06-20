@@ -12,6 +12,7 @@ timeout. A failure there usually means the DNS record hasn't propagated to
 Namecheap's authoritative servers yet or port 80 isn't reachable from the
 internet; the provisioning pipeline retries with a delay for the former.
 """
+import asyncio
 import logging
 from typing import Any
 
@@ -51,27 +52,38 @@ class NPMClient:
         self.password = password
         self.timeout = timeout
         self._token: str | None = None
+        self._login_lock = asyncio.Lock()
 
     async def _login(self) -> None:
-        try:
-            async with httpx.AsyncClient(verify=False, timeout=self.timeout) as c:
-                r = await c.post(f"{self.base_url}/api/tokens",
-                                 json={"identity": self.email, "secret": self.password})
-        except httpx.HTTPError as exc:
-            raise NPMError(f"Cannot reach NPM at {self.base_url}: {exc}") from exc
-        if r.status_code != 200:
-            raise NPMError(f"NPM login failed: {_err_detail(r)}")
-        token = r.json().get("token")
-        if not token:
-            raise NPMError("NPM login returned no token")
-        self._token = token
+        # Serialise so parallel first requests share one token fetch instead of
+        # each POSTing /api/tokens and burning a redundant login.
+        async with self._login_lock:
+            if self._token is not None:
+                return
+            try:
+                async with httpx.AsyncClient(verify=False, timeout=self.timeout) as c:
+                    r = await c.post(f"{self.base_url}/api/tokens",
+                                     json={"identity": self.email, "secret": self.password})
+            except httpx.HTTPError as exc:
+                raise NPMError(f"Cannot reach NPM at {self.base_url}: {exc}") from exc
+            if r.status_code != 200:
+                raise NPMError(f"NPM login failed: {_err_detail(r)}")
+            token = r.json().get("token")
+            if not token:
+                raise NPMError("NPM login returned no token")
+            self._token = token
 
     async def _request(self, method: str, path: str, json_body: Any = None,
                        timeout: float | None = None) -> Any:
         if self._token is None:
             await self._login()
+        # Cap connect at 10s even when the overall (read) timeout is long (the
+        # 300s cert call) so a dead/unreachable NPM fails fast instead of
+        # hanging for the full read budget on the initial TCP connect.
+        to = timeout or self.timeout
+        client_timeout = httpx.Timeout(to, connect=min(10.0, to))
         try:
-            async with httpx.AsyncClient(verify=False, timeout=timeout or self.timeout) as c:
+            async with httpx.AsyncClient(verify=False, timeout=client_timeout) as c:
                 r = await c.request(method, f"{self.base_url}/api{path}",
                                     json=json_body,
                                     headers={"Authorization": f"Bearer {self._token}"})

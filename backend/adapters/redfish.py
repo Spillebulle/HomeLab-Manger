@@ -29,6 +29,17 @@ from .base import BaseAdapter
 _SNMP_SETUP_CACHE: dict[tuple, tuple] = {}
 
 
+def _to_float(v) -> float | None:
+    """Coerce a Redfish numeric that may arrive as a JSON string ("33.0") to
+    float; None/empty/non-numeric → None."""
+    if v is None or v == "":
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 class RedfishAdapter(BaseAdapter):
     # Redfish exposes both a graceful (GracefulShutdown) and a forced (ForceOff)
     # power-down - see _RESET_TYPES - so both are valid UPS-shutdown targets.
@@ -87,6 +98,16 @@ class RedfishAdapter(BaseAdapter):
         # Huawei iBMC corrupts response bodies under concurrent fan-out - see
         # _members(). Set to a Semaphore(1) once we know the box is a Huawei.
         self._members_sem: asyncio.Semaphore | None = None
+        # One httpx client per adapter instance (one poll cycle). Reusing it
+        # keeps the TCP+TLS connection alive across the many GETs a poll makes,
+        # instead of paying a fresh handshake per request - a big win on slow
+        # BMC stacks (Cisco Redfish ~3s/GET). Closed in close().
+        self._http: httpx.AsyncClient | None = None
+
+    def _client(self) -> httpx.AsyncClient:
+        if self._http is None:
+            self._http = httpx.AsyncClient(verify=False, timeout=15)
+        return self._http
 
     def get_supported_cache_keys(self) -> list[str]:
         return ["status", "hardware", "storage", "network", "power", "sensors"]
@@ -98,55 +119,57 @@ class RedfishAdapter(BaseAdapter):
         Save the Location header so close() can DELETE the session - Huawei
         enforces a low concurrent-session limit (~4) and will reject new logins
         with `SessionLimitExceeded` if we leak."""
-        async with httpx.AsyncClient(verify=False, timeout=15) as c:
-            r = await c.post(
-                f"{self.base}/redfish/v1/SessionService/Sessions",
-                json={"UserName": self.username, "Password": self.password},
-                headers={"Content-Type": "application/json"},
-            )
-            r.raise_for_status()
-            self._auth_token  = r.headers.get("X-Auth-Token")
-            self._session_uri = r.headers.get("Location")
+        c = self._client()
+        r = await c.post(
+            f"{self.base}/redfish/v1/SessionService/Sessions",
+            json={"UserName": self.username, "Password": self.password},
+            headers={"Content-Type": "application/json"},
+        )
+        r.raise_for_status()
+        self._auth_token  = r.headers.get("X-Auth-Token")
+        self._session_uri = r.headers.get("Location")
 
     async def close(self) -> None:
-        if not (self._auth_token and self._session_uri):
-            return
-        # Location can be a full URL or an absolute path; keep just the path.
-        path = self._session_uri
-        if path.startswith("http"):
-            path = path.split("/", 3)[-1]
-            if not path.startswith("/"):
-                path = "/" + path
         try:
-            async with httpx.AsyncClient(verify=False, timeout=10) as c:
-                await c.delete(
-                    f"{self.base}{path}",
-                    headers={"X-Auth-Token": self._auth_token},
-                )
-        except Exception:
-            pass  # best-effort; session will time out on its own
-        self._auth_token = None
-        self._session_uri = None
+            if self._auth_token and self._session_uri:
+                # Location can be a full URL or an absolute path; keep the path.
+                path = self._session_uri
+                if path.startswith("http"):
+                    path = path.split("/", 3)[-1]
+                    if not path.startswith("/"):
+                        path = "/" + path
+                try:
+                    await self._client().delete(
+                        f"{self.base}{path}",
+                        headers={"X-Auth-Token": self._auth_token},
+                    )
+                except Exception:
+                    pass  # best-effort; session will time out on its own
+                self._auth_token = None
+                self._session_uri = None
+        finally:
+            if self._http is not None:
+                await self._http.aclose()
+                self._http = None
 
     async def _request(self, method: str, path: str, **kwargs) -> dict:
         headers = kwargs.pop("headers", {}) or {}
         headers.setdefault("Accept", "application/json")
 
+        c = self._client()
         if self._auth_token:
             headers["X-Auth-Token"] = self._auth_token
             auth = None
         else:
             auth = (self.username, self.password)
 
-        async with httpx.AsyncClient(verify=False, timeout=15, auth=auth) as c:
-            r = await c.request(method, f"{self.base}{path}", headers=headers, **kwargs)
+        r = await c.request(method, f"{self.base}{path}", headers=headers, auth=auth, **kwargs)
 
         # Basic Auth rejected → fall back to session auth, retry once.
         if r.status_code == 401 and not self._auth_token:
             await self._login()
             headers["X-Auth-Token"] = self._auth_token
-            async with httpx.AsyncClient(verify=False, timeout=15) as c:
-                r = await c.request(method, f"{self.base}{path}", headers=headers, **kwargs)
+            r = await c.request(method, f"{self.base}{path}", headers=headers, **kwargs)
 
         r.raise_for_status()
         return r.json() if r.content else {}
@@ -194,7 +217,11 @@ class RedfishAdapter(BaseAdapter):
         raise ValueError(f"Unknown cache key: {cache_key!r}")
 
     async def _status(self, sid: str) -> dict:
-        s = await self._get(f"/redfish/v1/Systems/{sid}")
+        # Use _system() so the System object is fetched once per poll (status is
+        # the first key) and cached for hardware/power/sensors - and so the
+        # Huawei members-semaphore is armed on this first call rather than
+        # whichever key happens to hit _system() first.
+        s = await self._system(sid)
         manufacturer = s.get("Manufacturer", "")
         model        = s.get("Model", "")
 
@@ -495,7 +522,14 @@ class RedfishAdapter(BaseAdapter):
             for cid in cpu_ids
         ]
         out: dict[str, str] = {}
-        for cid, (errInd, errStat, _i, vbs) in zip(cpu_ids, await asyncio.gather(*tasks, return_exceptions=False)):
+        # return_exceptions=True so one failed CPU GET doesn't abort the whole
+        # gather (which would propagate up and drop *all* CPU model overlays,
+        # not just the one that failed).
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for cid, res in zip(cpu_ids, results):
+            if isinstance(res, Exception):
+                continue
+            errInd, errStat, _i, vbs = res
             if errInd or errStat:
                 continue
             for _name, val in vbs:
@@ -854,9 +888,13 @@ class RedfishAdapter(BaseAdapter):
                 "state":               p.get("Status", {}).get("State"),
             })
 
-        consumed = None
-        for ctrl in chassis.get("PowerControl", []):
-            consumed = ctrl.get("PowerConsumedWatts")
+        # PowerControl[0] is the chassis aggregate per the Redfish spec; take
+        # it rather than letting a later (per-domain) controller overwrite it.
+        # Tolerate the single-dict shape some BMCs emit instead of a list.
+        pc = chassis.get("PowerControl")
+        if isinstance(pc, dict):
+            pc = [pc]
+        consumed = pc[0].get("PowerConsumedWatts") if pc else None
 
         # Huawei iBMC: Redfish 1.0.2 doesn't populate per-PSU watts. Pull
         # them from the Huawei server MIB instead. Gated on Manufacturer to
@@ -881,9 +919,12 @@ class RedfishAdapter(BaseAdapter):
             if t.get("Status", {}).get("State") != "Enabled":
                 continue
             
-            celsius = t.get("ReadingCelsius")
-            
-            # Sanity check: Filter out iBMC junk values (-59, -60, 0) 
+            # Some firmware returns ReadingCelsius as a JSON string ("33.0");
+            # coerce before comparing so a string value doesn't TypeError the
+            # whole sensors fetch.
+            celsius = _to_float(t.get("ReadingCelsius"))
+
+            # Sanity check: Filter out iBMC junk values (-59, -60, 0)
             # that indicate an unpopulated socket or powered-off state
             if celsius is None or celsius <= 0:
                 continue

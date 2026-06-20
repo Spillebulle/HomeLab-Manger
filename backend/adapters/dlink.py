@@ -749,8 +749,14 @@ class DLinkAdapter(SNMPAdapter):
                     self.hostname, ssh_port, type(exc).__name__, exc,
                 )
                 err = {"error": str(exc)}
-                # Pad so callers indexing by command position still get a result.
-                return [err] * len(commands) if not transport else [err]
+                # Always pad to len(commands) so positional callers (e.g.
+                # _vlan_batch's `zip(ordered, results)` + `save config` index)
+                # stay aligned. The old `[err] if transport else ...` branch
+                # returned a 1-element list when the session failed *after*
+                # the transport object existed (the common auth/channel-failure
+                # path), which truncated the zip and made _vlan_batch report
+                # `saved: True` for a batch that never ran.
+                return [err] * len(commands)
             finally:
                 if transport is not None:
                     transport.close()

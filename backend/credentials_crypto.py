@@ -40,23 +40,50 @@ def _key_path() -> str:
 
 
 def get_credential_key() -> bytes:
-    """Resolve the Fernet key. Cached at module level after first call so we
-    don't re-read the file or re-generate on every encrypt/decrypt."""
+    """Resolve the Fernet key. The resulting Fernet instance is cached in
+    `_fernet()`; this resolver itself re-reads each call, so callers other
+    than `_fernet()` should cache if they call it hot."""
     env = os.environ.get("CREDENTIAL_KEY")
     if env:
-        return env.encode("ascii")
+        key = env.encode("ascii")
+        # Fail fast with a clear message if the operator-supplied key is
+        # malformed - otherwise it surfaces as an opaque ValueError deep
+        # inside the first encrypt/decrypt.
+        try:
+            Fernet(key)
+        except Exception as exc:
+            raise ValueError(
+                "CREDENTIAL_KEY is not a valid Fernet key (expected 32 "
+                "url-safe-base64-encoded bytes). Generate one with "
+                "`python -c \"from cryptography.fernet import Fernet; "
+                f"print(Fernet.generate_key().decode())\"`. Underlying error: {exc}"
+            ) from exc
+        return key
     path = _key_path()
     if os.path.exists(path):
         with open(path, "rb") as f:
             return f.read().strip()
-    # First-time generation. Writes are atomic-ish (rename) so a half-written
-    # key file isn't possible even if the process dies mid-write.
-    key = Fernet.generate_key()
+    # First-time generation. Use O_CREAT|O_EXCL so that two processes (or the
+    # lifespan + an early poll task) starting concurrently can't each generate
+    # a different key and last-writer-win - the loser would encrypt with a key
+    # the file no longer holds and lose those credentials on restart.
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "wb") as f:
-        f.write(key)
-    os.replace(tmp, path)
+    key = Fernet.generate_key()
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    except FileExistsError:
+        # Another worker beat us to it - read theirs.
+        with open(path, "rb") as f:
+            return f.read().strip()
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(key)
+    except Exception:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
     try:
         os.chmod(path, 0o600)
     except OSError:

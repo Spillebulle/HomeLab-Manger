@@ -222,8 +222,7 @@ class HPE1820Adapter(SNMPAdapter):
             if idx > copper_end:
                 p["name"] = f"Port {idx} (SFP)"
             else:
-                m = _GENERIC_IFDESCR_RE.match(_to_str(p.get("name", "")))
-                p["name"] = f"Port {idx}" if m else f"Port {idx}"
+                p["name"] = f"Port {idx}"
             filtered.append(p)
         return filtered
 
@@ -491,13 +490,17 @@ class HPE1820Adapter(SNMPAdapter):
             admin = "enabled" if enable else "disabled"
             power_limit_type = "dot3af"
             power_limit = 30000
+        # A user limit above the 802.3af ceiling (15.4 W) is only effective if
+        # the port is also put in high-power (802.3at) mode - otherwise the
+        # switch silently caps at 15.4 W regardless of the requested limit.
+        high_power = "enable" if power_limit > 15400 else "disable"
         def _do(c):
             return self._post_form(c, _WEB_POE_MODAL, {
                 "intfStr": port,
                 "admin_mode_sel[]": admin,
                 "schedule_sel[]": "none",
                 "priority_sel[]": "low",
-                "high_power_mode_sel[]": "disable",     # = AF mode (15.4 W cap)
+                "high_power_mode_sel[]": high_power,     # enable = AT (30W), disable = AF (15.4W)
                 "power_detect_type_sel[]": "4pt_dot3af",
                 "power_limit_type_sel[]": power_limit_type,
                 "power_limit": str(power_limit),

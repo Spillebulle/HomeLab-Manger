@@ -30,6 +30,16 @@ logger = logging.getLogger(__name__)
 
 API_URL = "https://api.namecheap.com/xml.response"
 
+# Record types we can faithfully round-trip through getHosts → setHosts using
+# only name/type/address/ttl (+ mxpref for MX). setHosts REPLACES the whole
+# zone, so any existing record of a type carrying extra structured fields we
+# don't capture (notably SRV and CAA) would be silently corrupted on every
+# write. We refuse to write such a zone rather than mangle it - see _set_hosts.
+_ROUNDTRIP_SAFE_TYPES = {
+    "A", "AAAA", "CNAME", "ALIAS", "NS", "TXT", "MX",
+    "URL", "URL301", "FRAME",
+}
+
 
 class NamecheapError(Exception):
     """Any Namecheap API failure, with Namecheap's message where available."""
@@ -112,6 +122,17 @@ class NamecheapClient:
     # ── writes (read-modify-write; full replace under the hood) ──────────
 
     async def _set_hosts(self, domain: str, hosts: list[dict], email_type: str | None) -> None:
+        # setHosts replaces the ENTIRE zone. If it contains a record type we
+        # can't reproduce from the 5 fields we read, writing would drop the
+        # missing fields. Refuse instead of silently corrupting the zone.
+        unsafe = sorted({h["type"] for h in hosts if h["type"] not in _ROUNDTRIP_SAFE_TYPES})
+        if unsafe:
+            raise NamecheapError(
+                f"Refusing to modify {domain}'s DNS: the zone contains record "
+                f"type(s) {', '.join(unsafe)} this tool can't safely rewrite. "
+                "Namecheap's API replaces the whole zone on every change, which "
+                f"would corrupt those records. Remove the {', '.join(unsafe)} "
+                "record(s) in Namecheap first, or manage this domain manually.")
         params = self._base_params("namecheap.domains.dns.setHosts", domain)
         if email_type:
             params["EmailType"] = email_type
@@ -139,7 +160,9 @@ class NamecheapClient:
 
         same_name = [h for h in hosts if h["name"].lower() == host_l]
         for h in same_name:
-            if h["type"] == rtype and h["address"].rstrip(".") == address.rstrip("."):
+            # DNS targets (CNAME hostnames) are case-insensitive; compare lower
+            # so a case difference isn't seen as a different record.
+            if h["type"] == rtype and h["address"].rstrip(".").lower() == address.rstrip(".").lower():
                 return "exists"
         if same_name:
             # CNAME can't coexist with anything at the same name (and vice
@@ -166,7 +189,7 @@ class NamecheapClient:
         def matches(h: dict) -> bool:
             if h["name"].lower() != host_l or h["type"] != rtype:
                 return False
-            if address is not None and h["address"].rstrip(".") != address.rstrip("."):
+            if address is not None and h["address"].rstrip(".").lower() != address.rstrip(".").lower():
                 return False
             return True
 

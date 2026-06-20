@@ -68,7 +68,7 @@
       <div class="flex-1 overflow-y-auto p-2">
 
         <!-- Dashboard -->
-        <button @click="selectedId = null; page = 'dashboard'; tab = 'overview'"
+        <button @click="_destroyUpsCharts(); selectedId = null; page = 'dashboard'; tab = 'overview'"
                 :class="(!selectedId && page !== 'services') ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-card hover:text-gray-200'"
                 class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm mb-1 transition-colors">
           <i class="fa-solid fa-gauge-high w-4 text-center"></i> Dashboard
@@ -2680,6 +2680,10 @@
       },
 
       async logout() {
+        // Stop the WS reconnect loop before the session goes away, so onclose
+        // doesn't immediately try to reconnect against a now-invalid session.
+        this._wsClosed = true;
+        try { if (this.ws) this.ws.close(); } catch (e) {}
         try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
         window.location.href = '/login';
       },
@@ -2765,6 +2769,7 @@
 
       // ── Services (publish apps via NPM + Namecheap) ──────────────────────
       async openServices() {
+        this._destroyUpsCharts();
         this.selectedId = null;
         this.page = 'services';
         await Promise.all([this.loadServices(), this.loadIntegrations()]);
@@ -3436,9 +3441,11 @@
             const data = JSON.parse(event.data);
             if (data.event === 'device_updated') {
               // The backend says a device was just polled!
-              // 1. Update the dashboard list (updates the status dots and last_seen)
-              await this.loadDevices();
-              
+              // 1. Update the dashboard list (status dots + last_seen). Coalesce:
+              //    many devices can report in the same tick, and each one
+              //    re-fetching the whole list would be N redundant requests.
+              this._scheduleDevicesReload();
+
               // 2. If we are currently looking at this exact device, refresh its details immediately
               if (this.selectedId === data.device_id) {
                 await this.loadDetail(this.selectedId);
@@ -3454,10 +3461,29 @@
           }
         };
 
-        this.ws.onclose = () => {
-          // If the backend restarts or the connection drops, try to reconnect after 5 seconds
-          setTimeout(() => this.connectWebSocket(), 5000);
+        this.ws.onclose = (ev) => {
+          // 1008 (policy violation) is what the backend sends when the session
+          // cookie is missing/invalid. Reconnecting would just loop against an
+          // endpoint that keeps rejecting us - send the user to login instead
+          // (mirrors the global fetch-401 hook).
+          if (ev && ev.code === 1008) {
+            window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+            return;
+          }
+          if (this._wsClosed) return;   // intentional teardown (e.g. logout)
+          // Backend restart / transient drop - retry after 5s.
+          setTimeout(() => { if (!this._wsClosed) this.connectWebSocket(); }, 5000);
         };
+      },
+
+      // Coalesce rapid device-list refreshes into one fetch per ~300ms window.
+      _scheduleDevicesReload() {
+        if (this._devicesReloadPending) return;
+        this._devicesReloadPending = true;
+        setTimeout(() => {
+          this._devicesReloadPending = false;
+          this.loadDevices();
+        }, 300);
       },
 
       // ── data fetching ─────────────────────────────────────────────────────
@@ -3470,22 +3496,42 @@
 
       async loadDetail(id) {
         this.loading = true;
+        // Generation guard: if the user switches devices (or a late WS tick
+        // for the previous device fires) while this fetch is in flight, a
+        // stale response must not clobber the now-current view.
+        const token = (this._detailToken || 0) + 1;
+        this._detailToken = token;
         try {
           const r = await fetch(`/api/devices/${id}/cache`);
-          this.detail = await r.json();
+          const data = await r.json();
+          if (token !== this._detailToken) return;   // superseded
+          this.detail = data;
         } catch(e) {
-          this.showToast('Failed to load device data', 'error');
+          if (token === this._detailToken) this.showToast('Failed to load device data', 'error');
         } finally {
-          this.loading = false;
+          if (token === this._detailToken) this.loading = false;
         }
       },
 
       async selectDevice(id) {
+        // Tear down the previous device's UPS charts so they don't linger on
+        // window.__upsCharts holding detached canvases after we navigate away.
+        this._destroyUpsCharts();
         this.selectedId = id;
         this.tab = 'overview';
         this.detail = {};
         this.pendingVlanChanges = {};
         await this.loadDetail(id);
+      },
+
+      _destroyUpsCharts() {
+        if (!window.__upsCharts) return;
+        for (const id of ['upsChartPower', 'upsChartCharge', 'upsChartRuntime', 'upsChartVoltage']) {
+          if (window.__upsCharts[id]) {
+            window.__upsCharts[id].destroy();
+            delete window.__upsCharts[id];
+          }
+        }
       },
 
       async refresh() {
@@ -4058,13 +4104,23 @@
         });
         let savedDeviceId = this.editingDevice?.id;
         if (this.editingDevice) {
-          await fetch(`/api/devices/${this.editingDevice.id}`, {
+          const r = await fetch(`/api/devices/${this.editingDevice.id}`, {
             method: 'PUT', headers: {'Content-Type': 'application/json'}, body,
           });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            this.showToast('Failed to update device: ' + (err.detail || r.status), 'error');
+            return;
+          }
         } else {
           const r = await fetch('/api/devices', {
             method: 'POST', headers: {'Content-Type': 'application/json'}, body,
           });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            this.showToast('Failed to add device: ' + (err.detail || r.status), 'error');
+            return;
+          }
           // create_device returns {id: <new-id>}; grab it so the post-save
           // preflight can query the just-stored device server-side.
           try {
@@ -4122,9 +4178,14 @@
 
       async deleteDevice() {
         this.confirm(`Delete "${this.editingDevice.name}"?`, async () => {
-          await fetch(`/api/devices/${this.editingDevice.id}`, { method: 'DELETE' });
+          const r = await fetch(`/api/devices/${this.editingDevice.id}`, { method: 'DELETE' });
+          if (!r.ok) {
+            const err = await r.json().catch(() => ({}));
+            this.showToast('Failed to delete device: ' + (err.detail || r.status), 'error');
+            return;
+          }
           this.showDeviceModal = false;
-          if (this.selectedId === this.editingDevice.id) { this.selectedId = null; this.detail = {}; }
+          if (this.selectedId === this.editingDevice.id) { this._destroyUpsCharts(); this.selectedId = null; this.detail = {}; }
           await this.loadDevices();
           this.showToast('Device deleted');
         });

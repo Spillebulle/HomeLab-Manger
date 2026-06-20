@@ -189,6 +189,7 @@ class BaseAdapter(ABC):
         if not (user and auth_pass and priv_pass):
             return False, "no SNMPv3 credentials configured"
         port = int(req.get("port", self.credentials.get("snmp_port", 161)))
+        engine = None
         try:
             engine = ps.SnmpEngine()
             usm    = ps.UsmUserData(user, auth_pass, priv_pass,
@@ -199,10 +200,6 @@ class BaseAdapter(ABC):
             it = ps.get_cmd(engine, usm, transport, ps.ContextData(),
                             ps.ObjectType(ps.ObjectIdentity("1.3.6.1.2.1.1.5.0")))
             err_ind, err_stat, _err_idx, _vbs = await asyncio.wait_for(it, timeout=5.0)
-            try:
-                engine.close_dispatcher()
-            except Exception:
-                pass
             if err_ind:
                 return False, f"SNMPv3 error: {err_ind}"
             if err_stat:
@@ -212,6 +209,16 @@ class BaseAdapter(ABC):
             return False, "SNMPv3 timed out"
         except Exception as exc:
             return False, f"SNMPv3 error: {type(exc).__name__}: {exc}"
+        finally:
+            # Always close - a leaked engine keeps a UDP transport registered on
+            # the event loop forever (the documented iBMC RAM/CPU-creep cause).
+            # The old code only closed on the success path, leaking on every
+            # failed "Test connection" click.
+            if engine is not None:
+                try:
+                    engine.close_dispatcher()
+                except Exception:
+                    pass
 
     async def _probe_redfish(self, req: dict) -> tuple[bool, str]:
         """GET /redfish/v1/ with Basic Auth. Validates both reachability and
@@ -245,6 +252,7 @@ class BaseAdapter(ABC):
         "HTTPS up" from "XMLAPI working with these credentials"."""
         import httpx
         import xml.etree.ElementTree as ET
+        from xml.sax.saxutils import quoteattr
         port = int(req.get("port", self.credentials.get("port", 443)))
         username = self.credentials.get("username")
         password = self.credentials.get("password") or ""
@@ -255,7 +263,10 @@ class BaseAdapter(ABC):
         from .cimc import _legacy_ssl_context
         ctx = _legacy_ssl_context()
         url = f"https://{self.hostname}:{port}/nuova"
-        body = f'<aaaLogin inName="{username}" inPassword="{password}"/>'
+        # quoteattr escapes &, <, ", etc. and adds the surrounding quotes, so a
+        # password containing XML metacharacters produces valid XML (and a real
+        # auth result) instead of a malformed body and a confusing parse error.
+        body = f"<aaaLogin inName={quoteattr(username)} inPassword={quoteattr(password)}/>"
         try:
             async with httpx.AsyncClient(verify=ctx, timeout=10) as c:
                 r = await c.post(url, content=body,

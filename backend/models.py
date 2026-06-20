@@ -1,10 +1,10 @@
-from datetime import datetime
 from sqlalchemy import (
     Column, Integer, Float, String, Boolean, Text, DateTime, ForeignKey,
     UniqueConstraint, Index, TypeDecorator,
 )
 from .database import Base
 from .credentials_crypto import encrypt_credentials, decrypt_credentials
+from .timeutil import utcnow
 
 
 class EncryptedJSON(TypeDecorator):
@@ -47,7 +47,7 @@ class Device(Base):
     # Per-device poll interval in seconds. NULL ⇒ use the poller's default
     # (DEFAULT_POLL_INTERVAL). The poller clamps to a sane minimum at read time.
     poll_interval = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class DeviceCache(Base):
@@ -87,7 +87,7 @@ class DeviceMetric(Base):
     device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False)
     metric = Column(String(50), nullable=False)   # load_pct | watts | charge_pct | runtime_sec | …
     value = Column(Float, nullable=False)
-    ts = Column(DateTime, nullable=False, default=datetime.utcnow)
+    ts = Column(DateTime, nullable=False, default=utcnow)
 
     # The history endpoint always filters by (device_id, metric) over a ts
     # range and orders by ts - this composite index serves both the scan and
@@ -103,8 +103,8 @@ class AuthUser(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(64), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class Event(Base):
@@ -114,7 +114,7 @@ class Event(Base):
     __tablename__ = "events"
 
     id = Column(Integer, primary_key=True, index=True)
-    ts = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    ts = Column(DateTime, nullable=False, default=utcnow, index=True)
     device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"),
                        nullable=True, index=True)
     device_name = Column(String(255), nullable=True)   # denormalised so log survives device deletion
@@ -170,7 +170,7 @@ class ShutdownRule(Base):
     # for a guest OS to finish shutting down before its hypervisor is told to.
     priority = Column(Integer, nullable=False, default=100)
     delay_after_sec = Column(Integer, nullable=False, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class Integration(Base):
@@ -184,7 +184,7 @@ class Integration(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(40), nullable=False, unique=True)   # 'npm' | 'namecheap'
     config = Column(EncryptedJSON)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class Service(Base):
@@ -235,7 +235,7 @@ class Service(Base):
     npm_detail = Column(Text, nullable=True)
     cert_detail = Column(Text, nullable=True)
     state = Column(String(16), nullable=False, default="pending")  # pending | provisioning | active | error
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
 class ApiKey(Base):
@@ -249,5 +249,5 @@ class ApiKey(Base):
     name = Column(String(120), nullable=False)
     key_hash = Column(String(64), nullable=False, unique=True, index=True)  # sha256 hex
     prefix = Column(String(20), nullable=False)                              # display only
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     last_used_at = Column(DateTime, nullable=True)

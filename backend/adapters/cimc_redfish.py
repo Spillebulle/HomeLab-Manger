@@ -29,7 +29,6 @@ arithmetic on a `Reading` value will TypeError otherwise.
 import asyncio
 import re
 from typing import Any
-import httpx
 from .cimc import CIMCAdapter
 
 
@@ -157,8 +156,8 @@ class CIMCRedfishAdapter(CIMCAdapter):
         await self._ensure_rf_session()
         headers["X-Auth-Token"] = self._rf_token
 
-        async with httpx.AsyncClient(verify=self._ssl_ctx, timeout=15) as c:
-            r = await c.request(method, f"{self.base}{path}", headers=headers, **kwargs)
+        c = self._client()   # shared per-instance client (inherited from CIMCAdapter)
+        r = await c.request(method, f"{self.base}{path}", headers=headers, **kwargs)
 
         # Token expired or session culled by the BMC - mint a fresh one once.
         if r.status_code == 401:
@@ -166,8 +165,7 @@ class CIMCRedfishAdapter(CIMCAdapter):
             self._rf_session_path = None
             await self._ensure_rf_session()
             headers["X-Auth-Token"] = self._rf_token
-            async with httpx.AsyncClient(verify=self._ssl_ctx, timeout=15) as c:
-                r = await c.request(method, f"{self.base}{path}", headers=headers, **kwargs)
+            r = await c.request(method, f"{self.base}{path}", headers=headers, **kwargs)
 
         r.raise_for_status()
         return r.json() if r.content else {}
@@ -189,35 +187,34 @@ class CIMCRedfishAdapter(CIMCAdapter):
         """Mint an X-Auth-Token via SessionService. CIMC 3.0(4r) does not
         emit a `Location` header - we read the session URI from the
         response body's `@odata.id` instead so close() can DELETE it."""
-        async with httpx.AsyncClient(verify=self._ssl_ctx, timeout=15) as c:
-            r = await c.post(
-                f"{self.base}/redfish/v1/SessionService/Sessions",
-                json={"UserName": self.username, "Password": self.password},
-                headers={"Content-Type": "application/json"},
-            )
-            r.raise_for_status()
-            self._rf_token = r.headers.get("X-Auth-Token")
-            location = r.headers.get("Location")
-            if location:
-                if location.startswith("http"):
-                    location = "/" + location.split("/", 3)[-1].lstrip("/")
-                self._rf_session_path = location
-            else:
-                # Cisco's body shape: {"@odata.id": "/redfish/v1/SessionService/Sessions/104", ...}
-                try:
-                    self._rf_session_path = (r.json() or {}).get("@odata.id")
-                except Exception:
-                    self._rf_session_path = None
+        c = self._client()
+        r = await c.post(
+            f"{self.base}/redfish/v1/SessionService/Sessions",
+            json={"UserName": self.username, "Password": self.password},
+            headers={"Content-Type": "application/json"},
+        )
+        r.raise_for_status()
+        self._rf_token = r.headers.get("X-Auth-Token")
+        location = r.headers.get("Location")
+        if location:
+            if location.startswith("http"):
+                location = "/" + location.split("/", 3)[-1].lstrip("/")
+            self._rf_session_path = location
+        else:
+            # Cisco's body shape: {"@odata.id": "/redfish/v1/SessionService/Sessions/104", ...}
+            try:
+                self._rf_session_path = (r.json() or {}).get("@odata.id")
+            except Exception:
+                self._rf_session_path = None
 
     async def _rf_logout(self) -> None:
         if not (self._rf_token and self._rf_session_path):
             return
         try:
-            async with httpx.AsyncClient(verify=self._ssl_ctx, timeout=8) as c:
-                await c.delete(
-                    f"{self.base}{self._rf_session_path}",
-                    headers={"X-Auth-Token": self._rf_token},
-                )
+            await self._client().delete(
+                f"{self.base}{self._rf_session_path}",
+                headers={"X-Auth-Token": self._rf_token},
+            )
         except Exception:
             pass
         self._rf_token = None

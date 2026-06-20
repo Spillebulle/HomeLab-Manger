@@ -83,7 +83,11 @@
               body: JSON.stringify({ username: this.username, password: this.password }),
             });
             if (r.ok) {
-              const next = new URLSearchParams(window.location.search).get('next') || '/';
+              // Only honour a same-origin relative path - reject absolute URLs
+              // and protocol-relative ("//evil.com") values so a crafted
+              // ?next= can't turn the login into an open redirect.
+              let next = new URLSearchParams(window.location.search).get('next') || '/';
+              if (!next.startsWith('/') || next.startsWith('//')) next = '/';
               window.location.href = next;
               return;
             }

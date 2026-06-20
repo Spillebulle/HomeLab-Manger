@@ -2,7 +2,6 @@ import hashlib
 import logging
 import os
 import secrets
-from datetime import datetime
 
 import bcrypt
 from fastapi import Depends, HTTPException, Request, status
@@ -10,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from .database import SessionLocal, get_db
 from .models import ApiKey, AuthUser
+from .timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,7 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> str:
     if token:
         key = db.query(ApiKey).filter(ApiKey.key_hash == hash_api_key(token)).first()
         if key:
-            key.last_used_at = datetime.utcnow()
+            key.last_used_at = utcnow()
             try:
                 db.commit()
             except Exception:

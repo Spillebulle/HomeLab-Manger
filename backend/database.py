@@ -14,6 +14,8 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+_wal_warned = False
+
 
 @event.listens_for(engine, "connect")
 def _set_sqlite_pragmas(dbapi_connection, connection_record):
@@ -32,7 +34,17 @@ def _set_sqlite_pragmas(dbapi_connection, connection_record):
       pointlessly slow once you're already on WAL.
     """
     cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
+    # journal_mode=WAL returns the *resulting* mode; on a filesystem that can't
+    # do WAL (some network mounts) SQLite silently falls back. Warn once so the
+    # silent loss of the concurrency tuning is at least visible in the log.
+    row = cursor.execute("PRAGMA journal_mode=WAL").fetchone()
+    global _wal_warned
+    if row and str(row[0]).lower() != "wal" and not _wal_warned:
+        _wal_warned = True
+        logger.warning(
+            "SQLite journal_mode is %r, not WAL - the concurrency tuning "
+            "(per-key commits, busy_timeout) assumes WAL and writers will block "
+            "readers. Is the DB on a filesystem that supports WAL?", row[0])
     cursor.execute("PRAGMA busy_timeout=10000")
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.close()

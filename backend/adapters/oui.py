@@ -78,9 +78,14 @@ def _parse(path: str) -> dict[str, str]:
     return out
 
 
+_load_attempted = False
+
+
 def _load() -> None:
     """Populate `_OUI_VENDORS` from the active file. Safe to call multiple
     times - clears and rebuilds atomically."""
+    global _load_attempted
+    _load_attempted = True
     path = _active_file()
     if not os.path.exists(path):
         logger.warning("OUI database missing at %s - vendor lookup disabled", path)
@@ -102,7 +107,10 @@ def lookup(mac: str) -> str | None:
     """Return a vendor name for the given MAC, or None if unknown."""
     if not mac:
         return None
-    if not _OUI_VENDORS:
+    # Lazy-load once. The `_load_attempted` guard stops a missing/unparseable
+    # CSV (which leaves _OUI_VENDORS empty) from re-running the full ~40k-row
+    # parse on every single lookup - _connected() calls this per FDB entry.
+    if not _OUI_VENDORS and not _load_attempted:
         _load()
     n = _normalise(mac)
     if len(n) < 6:

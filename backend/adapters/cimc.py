@@ -11,6 +11,7 @@ import ssl
 import sys
 import time
 import xml.etree.ElementTree as ET
+from xml.sax.saxutils import quoteattr
 from typing import Any
 import httpx
 from .base import BaseAdapter
@@ -88,6 +89,10 @@ class CIMCAdapter(BaseAdapter):
         self.url      = f"https://{hostname}:{self.port}/nuova"
         self._cookie: str | None = None
         self._ssl_ctx = _legacy_ssl_context()
+        # One httpx client per adapter instance (one poll cycle), reused across
+        # the many XMLAPI POSTs a poll makes so the TLS handshake to CIMC's slow
+        # 1024-bit-RSA stack is paid once, not per request. Closed in close().
+        self._http: httpx.AsyncClient | None = None
         # IPMI SDR walk cached per adapter instance - `_sensors` and `_power`
         # both consume it, no point paying ~25s subprocess + retry twice.
         self._ipmi_walked: bool = False
@@ -107,20 +112,25 @@ class CIMCAdapter(BaseAdapter):
     # so retrying burns through the cap in a single poll.
     _TRANSIENT_ERROR_FRAGMENTS = ("xml api backend",)
 
+    def _client(self) -> httpx.AsyncClient:
+        if self._http is None:
+            self._http = httpx.AsyncClient(verify=self._ssl_ctx, timeout=15)
+        return self._http
+
     async def _post_xml_once(self, body: str) -> ET.Element:
-        async with httpx.AsyncClient(verify=self._ssl_ctx, timeout=15) as c:
-            r = await c.post(self.url, content=body, headers={"Content-Type": "application/xml"})
-            # Tag transport/HTTP errors with host context before they bubble up
-            # - bare `raise_for_status` produces a one-liner with the URL but
-            # nothing about which device adapter it came from in our logs.
-            try:
-                r.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                logger.warning(
-                    "CIMC XMLAPI POST to %s returned HTTP %d (body: %r)",
-                    self.hostname, r.status_code, r.text[:200],
-                )
-                raise
+        c = self._client()
+        r = await c.post(self.url, content=body, headers={"Content-Type": "application/xml"})
+        # Tag transport/HTTP errors with host context before they bubble up
+        # - bare `raise_for_status` produces a one-liner with the URL but
+        # nothing about which device adapter it came from in our logs.
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.warning(
+                "CIMC XMLAPI POST to %s returned HTTP %d (body: %r)",
+                self.hostname, r.status_code, r.text[:200],
+            )
+            raise
         return ET.fromstring(r.text)
 
     async def _post_xml(self, body: str) -> ET.Element:
@@ -139,7 +149,11 @@ class CIMCAdapter(BaseAdapter):
         return root
 
     async def _login(self) -> str:
-        xml = f'<aaaLogin inName="{self.username}" inPassword="{self.password}"/>'
+        # quoteattr escapes XML metacharacters (&, <, ") and adds the quotes, so
+        # a username/password containing them yields valid XML instead of a
+        # malformed body that fails login with a misleading parse error.
+        xml = (f"<aaaLogin inName={quoteattr(self.username)} "
+               f"inPassword={quoteattr(self.password)}/>")
         root = await self._post_xml_once(xml)
         cookie = root.get("outCookie")
         if not cookie:
@@ -166,6 +180,12 @@ class CIMCAdapter(BaseAdapter):
             await self._ssh_clear_xmlapi_sessions()
         except Exception:
             pass
+        if self._http is not None:
+            try:
+                await self._http.aclose()
+            except Exception:
+                pass
+            self._http = None
 
     # ── SSH-based session reaper ──────────────────────────────────────────────
 

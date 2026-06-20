@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 
 # Keep the log bounded. Pruned opportunistically inside emit_event.
 _MAX_EVENTS = 2000
+# Don't COUNT(*) the table on every single event - only check the cap every
+# Nth emit (and on the first one after startup). The table can only overshoot
+# by at most _PRUNE_EVERY rows between checks, which is negligible vs 2000.
+_PRUNE_EVERY = 100
+_emit_count = 0
 
 # Event types (also the keys the notification toggles map to).
 EV_UPS_ON_BATTERY = "ups_on_battery"
@@ -41,9 +46,12 @@ _COLOR = {"info": 0x3498DB, "warning": 0xF1C40F, "critical": 0xE74C3C}
 
 
 async def emit_event(db, device, event_type: str, title: str,
-                     detail: str | None = None, severity: str = "info") -> None:
+                     detail: str | None = None, severity: str = "info") -> bool:
     """Record an event and dispatch notifications for it. `device` may be a
-    Device ORM object or None (system-level event)."""
+    Device ORM object or None (system-level event). Returns True if the event
+    row was committed - callers that advance in-memory state off an event
+    (e.g. the poller's offline/UPS-state trackers) should only do so on True,
+    otherwise a failed commit silently drops the *next* real transition too."""
     device_id = getattr(device, "id", None)
     device_name = getattr(device, "name", None)
     ev = Event(
@@ -56,9 +64,12 @@ async def emit_event(db, device, event_type: str, title: str,
     except Exception as exc:
         db.rollback()
         logger.error("failed to record event %r: %s", title, exc)
-        return
+        return False
 
-    _prune(db)
+    global _emit_count
+    _emit_count += 1
+    if _emit_count % _PRUNE_EVERY == 1:   # first emit, then every _PRUNE_EVERY
+        _prune(db)
     log_fn = logger.warning if severity != "info" else logger.info
     log_fn("EVENT [%s/%s] %s%s", event_type, severity, title,
            f" - {detail}" if detail else "")
@@ -68,6 +79,7 @@ async def emit_event(db, device, event_type: str, title: str,
             await _dispatch(db, device_id, device_name, event_type, title, detail, severity)
         except Exception as exc:
             logger.error("notification dispatch for event %r failed: %s", title, exc)
+    return True
 
 
 def _prune(db) -> None:
