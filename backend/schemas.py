@@ -110,6 +110,36 @@ class ServiceUpdate(BaseModel):
     portainer_endpoint_id: Optional[int] = None
 
 
+class MonitorCreate(BaseModel):
+    """Push a device/service (or a manual URL) into the external monitoring
+    tool. For `device`/`service` sources, name + target_url are derived from
+    the row when omitted; `manual` requires both. `notifications` is a list of
+    channel ids from /api/monitoring/options; `status_page_ids` are pages to
+    add the monitor to."""
+    source_type: str = Field(default="manual")          # device | service | manual
+    source_id: Optional[int] = None
+    name: Optional[str] = Field(default=None, max_length=255)
+    target_url: Optional[str] = Field(default=None, max_length=512)
+    interval: int = Field(default=60, ge=5)             # Kuvasz min check interval is 5s
+    ssl_check: bool = False
+    enabled: bool = True
+    notifications: list[str] = []
+    status_page_ids: list[int] = []
+
+
+class MonitorUpdate(BaseModel):
+    """Partial edit + the reversibility surface: clear `notifications` to turn
+    them off, drop a page id to remove from that page only, set
+    `enabled=false` to pause."""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    target_url: Optional[str] = Field(default=None, min_length=1, max_length=512)
+    interval: Optional[int] = Field(default=None, ge=5)
+    ssl_check: Optional[bool] = None
+    enabled: Optional[bool] = None
+    notifications: Optional[list[str]] = None
+    status_page_ids: Optional[list[int]] = None
+
+
 class LoginRequest(BaseModel):
     username: str
     password: str

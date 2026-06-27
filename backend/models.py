@@ -238,6 +238,44 @@ class Service(Base):
     created_at = Column(DateTime, default=utcnow)
 
 
+class Monitor(Base):
+    """A link between a HomeLab device/service and a monitor in an external
+    uptime-monitoring tool (Kuvasz now; Uptime Kuma planned). One row per
+    monitor we manage there. The remote tool stays the source of truth for
+    live state; we store our *intent* (enabled, assigned notification channels,
+    status-page membership) and reconcile it onto the remote on create/update.
+
+    `source_id` is a SOFT reference to a device or service id - no FK, no
+    cascade. Deleting the underlying device/service just orphans the row, which
+    the API renders with a missing source rather than silently vanishing the
+    monitor. Brand-new table ⇒ `create_all` makes it; no migration needed.
+
+    `notifications` and `status_page_ids` are non-secret lists stored as JSON
+    text (same plain-column choice as the DNS snapshot fields on Service), not
+    EncryptedJSON - they hold no secrets and are never range-queried."""
+    __tablename__ = "monitors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String(40), nullable=False)          # kuvasz | uptime_kuma (snapshot)
+    source_type = Column(String(16), nullable=False, default="manual")  # device | service | manual
+    source_id = Column(Integer, nullable=True)             # soft ref to device.id / service.id
+    name = Column(String(255), nullable=False)
+    target_url = Column(String(512), nullable=False)
+    remote_id = Column(String(64), nullable=True)          # monitor id in the external tool
+    remote_ref = Column(String(300), nullable=True)        # "http:<name>" ref for page/notif links
+    enabled = Column(Boolean, default=True)
+    # Intended check config, stored locally so the edit form is accurate and a
+    # name-only edit doesn't clobber them (the remote GET doesn't round-trip
+    # these reliably across versions). Re-asserted onto the remote on every PUT.
+    interval = Column(Integer, nullable=False, default=60)  # seconds between checks
+    ssl_check = Column(Boolean, default=False)
+    notifications = Column(Text, nullable=True)            # JSON list of channel ids ("type:name")
+    status_page_ids = Column(Text, nullable=True)          # JSON list of status-page ids
+    status = Column(String(16), nullable=False, default="pending")  # pending | ok | error
+    detail = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+
+
 class ApiKey(Base):
     """A bearer token for programmatic API access, as an alternative to the
     cookie session. Only the SHA-256 hash is stored - the plaintext is shown

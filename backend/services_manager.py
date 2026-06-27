@@ -26,6 +26,7 @@ from .services_npm import NPMClient, NPMError
 from .services_portainer import (
     PortainerClient, endpoint_host_ip, host_from_url, looks_like_ip,
 )
+from .services_monitoring import monitoring_client  # re-exported for main.py
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,19 @@ PORTAINER_REQUIRED = ("base_url", "api_key")
 INTEGRATION_REQUIRED = {"npm": NPM_REQUIRED, "namecheap": NC_REQUIRED,
                         "portainer": PORTAINER_REQUIRED}
 INTEGRATION_SECRET_KEYS = {"npm": {"password"}, "namecheap": {"api_key"},
-                           "portainer": {"api_key"}}
+                           "portainer": {"api_key"},
+                           # monitoring carries one secret per provider:
+                           # Kuvasz=api_key, Uptime Kuma=password.
+                           "monitoring": {"api_key", "password"}}
+
+# The `monitoring` integration is provider-pick: required keys depend on which
+# tool is selected via cfg["provider"], so it's validated separately from the
+# static INTEGRATION_REQUIRED above. Uptime Kuma's row is here for the UI's
+# sake; the client factory still rejects it as not-yet-implemented.
+MONITORING_REQUIRED = {
+    "kuvasz": ("provider", "base_url", "api_key"),
+    "uptime_kuma": ("provider", "base_url", "username", "password"),
+}
 
 _CERT_ATTEMPTS = 3
 _CERT_RETRY_DELAY = 25  # seconds between Let's Encrypt attempts (DNS propagation)
@@ -53,6 +66,11 @@ def get_integration_config(db: Session, name: str) -> dict:
 
 
 def integration_configured(name: str, cfg: dict) -> bool:
+    if name == "monitoring":
+        required = MONITORING_REQUIRED.get((cfg.get("provider") or "").strip().lower())
+        if not required:
+            return False  # no provider chosen yet ⇒ not configured
+        return all(str(cfg.get(k) or "").strip() for k in required)
     required = INTEGRATION_REQUIRED.get(name, ())
     return all(str(cfg.get(k) or "").strip() for k in required)
 

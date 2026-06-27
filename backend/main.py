@@ -21,18 +21,20 @@ from . import __version__ as APP_VERSION
 from .database import get_db, init_db
 from .models import (
     Device, DeviceCache, DeviceMetric, AuthUser, ApiKey, ShutdownRule,
-    Event, NotificationConfig, Integration, Service,
+    Event, NotificationConfig, Integration, Service, Monitor,
 )
 from .schemas import (
     DeviceCreate, DeviceUpdate, LoginRequest, ChangePasswordRequest,
     PreflightRequest, ApiKeyCreate, ShutdownRuleCreate, ShutdownRuleUpdate,
     NotificationConfigUpdate, ServiceCreate, ServiceUpdate,
+    MonitorCreate, MonitorUpdate,
 )
 from . import events as events_mod
 from . import poller
 from . import services_manager
 from .timeutil import utcnow
 from .services_namecheap import NamecheapError
+from .services_monitoring import MonitoringError
 from .adapters import get_adapter
 from .adapters import oui as oui_db
 from .auth import (
@@ -441,6 +443,13 @@ def delete_device(device_id: int, db: Session = Depends(get_db)):
     # Keep the event history (device_name is denormalised), just detach it.
     db.query(Event).filter(Event.device_id == device_id).update(
         {Event.device_id: None}, synchronize_session=False)
+    # Keep any uptime monitor (it still exists in the external tool); just drop
+    # the soft link so it shows as an unlinked/manual monitor instead of
+    # silently pointing at a gone device.
+    db.query(Monitor).filter(Monitor.source_type == "device",
+                             Monitor.source_id == device_id).update(
+        {Monitor.source_type: "manual", Monitor.source_id: None},
+        synchronize_session=False)
     db.delete(d)
     db.commit()
     return {"ok": True}
@@ -1258,7 +1267,7 @@ def _serialize_integration(name: str, cfg: dict) -> dict:
     return out
 
 
-_INTEGRATION_NAMES = ("npm", "namecheap", "portainer")
+_INTEGRATION_NAMES = ("npm", "namecheap", "portainer", "monitoring")
 
 
 @api.get("/integrations")
@@ -1305,6 +1314,8 @@ async def test_integration(name: str, db: Session = Depends(get_db)):
             return await services_manager.npm_client(cfg).test()
         if name == "portainer":
             return await services_manager.portainer_client(cfg).test()
+        if name == "monitoring":
+            return await services_manager.monitoring_client(cfg).test()
         hosts = (await services_manager.nc_client(cfg).get_hosts(cfg["domain"]))["hosts"]
         return {"ok": True, "detail": f"Connected - {len(hosts)} DNS record(s) on {cfg['domain']}"}
     except Exception as exc:
@@ -1802,9 +1813,296 @@ async def delete_service(service_id: int, force: bool = False, unlink: bool = Fa
         errors = await services_manager.deprovision_service(svc, db)
         if errors and not force:
             raise HTTPException(status_code=502, detail="Cleanup incomplete: " + "; ".join(errors))
+    # Detach (don't delete) any uptime monitor linked to this service.
+    db.query(Monitor).filter(Monitor.source_type == "service",
+                             Monitor.source_id == service_id).update(
+        {Monitor.source_type: "manual", Monitor.source_id: None},
+        synchronize_session=False)
     db.delete(svc)
     db.commit()
     return {"ok": True, "unlinked": unlink, "cleanup_errors": errors}
+
+
+# ── Monitoring (push devices/services into Kuvasz; Uptime Kuma planned) ───────
+# Provider abstraction lives in services_monitoring.py; the integration config
+# (provider + base_url + api_key) goes through the same _INTEGRATION_NAMES
+# plumbing as NPM/Namecheap/Portainer. A Monitor row links a device/service to
+# a monitor in the external tool and stores our intent (enabled, notification
+# channels, status-page membership) which we reconcile onto the remote.
+
+def _monitor_json_list(value: str | None) -> list:
+    try:
+        out = json.loads(value) if value else []
+        return out if isinstance(out, list) else []
+    except (ValueError, TypeError):
+        return []
+
+
+def _monitor_live_state(rm: dict | None) -> str | None:
+    """Best-effort UP/DOWN extraction from a Kuvasz monitor dict - field name
+    varies across versions, so try the common ones and tolerate misses."""
+    if not isinstance(rm, dict):
+        return None
+    for k in ("uptimeStatus", "uptime_status", "status", "state"):
+        v = rm.get(k)
+        if isinstance(v, str) and v:
+            return v.upper()
+    return None
+
+
+def _serialize_monitor(m: Monitor, live: str | None = None) -> dict:
+    return {
+        "id": m.id,
+        "provider": m.provider,
+        "source_type": m.source_type,
+        "source_id": m.source_id,
+        "name": m.name,
+        "target_url": m.target_url,
+        "remote_id": m.remote_id,
+        "enabled": bool(m.enabled),
+        "interval": m.interval,
+        "ssl_check": bool(m.ssl_check),
+        "notifications": _monitor_json_list(m.notifications),
+        "status_page_ids": _monitor_json_list(m.status_page_ids),
+        "status": m.status,
+        "detail": m.detail,
+        "live": live,
+        "created_at": _iso_z(m.created_at) if m.created_at else None,
+    }
+
+
+def _monitoring_cfg_or_400(db: Session) -> dict:
+    cfg = services_manager.get_integration_config(db, "monitoring")
+    if not services_manager.integration_configured("monitoring", cfg):
+        raise HTTPException(status_code=400, detail="Monitoring integration is not configured")
+    return cfg
+
+
+def _resolve_monitor_source(body: MonitorCreate, db: Session) -> tuple[str, str]:
+    """(name, target_url) for a new monitor, derived from the linked
+    device/service when not given explicitly. `manual` requires both."""
+    st = body.source_type
+    if st == "device":
+        d = db.query(Device).filter(Device.id == body.source_id).first()
+        if not d:
+            raise HTTPException(status_code=404, detail="Device not found")
+        name = (body.name or "").strip() or d.name
+        url = (body.target_url or "").strip() or f"http://{d.hostname}"
+    elif st == "service":
+        s = db.query(Service).filter(Service.id == body.source_id).first()
+        if not s:
+            raise HTTPException(status_code=404, detail="Service not found")
+        name = (body.name or "").strip() or s.name
+        url = (body.target_url or "").strip() or f"https://{s.subdomain}.{s.domain}"
+    elif st == "manual":
+        name = (body.name or "").strip()
+        url = (body.target_url or "").strip()
+        if not name or not url:
+            raise HTTPException(status_code=400, detail="A manual monitor needs both a name and a target URL")
+    else:
+        raise HTTPException(status_code=400, detail="source_type must be device, service or manual")
+    return name, url
+
+
+@api.get("/monitors")
+async def list_monitors(db: Session = Depends(get_db)):
+    """All managed monitors, each with a best-effort live UP/DOWN state from the
+    remote tool (tolerant of a down/misconfigured tool - rows still render)."""
+    rows = db.query(Monitor).order_by(Monitor.name, Monitor.id).all()
+    live_map: dict[str, str | None] = {}
+    cfg = services_manager.get_integration_config(db, "monitoring")
+    if rows and services_manager.integration_configured("monitoring", cfg):
+        try:
+            remote = await services_manager.monitoring_client(cfg).list_monitors()
+            for rm in remote:
+                live_map[str(rm.get("id"))] = _monitor_live_state(rm)
+        except Exception as exc:
+            logger.debug("Monitoring live-state fetch failed: %s", exc)
+    return [_serialize_monitor(m, live_map.get(str(m.remote_id))) for m in rows]
+
+
+@api.get("/monitors/candidates")
+def monitor_candidates(db: Session = Depends(get_db)):
+    """All devices + services with a suggested URL, each flagged `monitored` if
+    it already has a monitor. We return monitored ones too (not filtered) so the
+    add-monitor dropdown can grey them out but keep them selectable - a device
+    or service can legitimately have more than one monitor (different URLs/paths)."""
+    monitored = {(m.source_type, m.source_id)
+                 for m in db.query(Monitor).all() if m.source_id is not None}
+    out: list[dict] = []
+    for d in db.query(Device).order_by(Device.name).all():
+        out.append({"source_type": "device", "source_id": d.id, "name": d.name,
+                    "suggested_url": f"http://{d.hostname}",
+                    "monitored": ("device", d.id) in monitored})
+    for s in db.query(Service).order_by(Service.name).all():
+        out.append({"source_type": "service", "source_id": s.id, "name": s.name,
+                    "suggested_url": f"https://{s.subdomain}.{s.domain}",
+                    "monitored": ("service", s.id) in monitored})
+    return out
+
+
+@api.get("/monitoring/options")
+async def monitoring_options(db: Session = Depends(get_db)):
+    """Notification channels + status pages available in the configured tool,
+    for the add/edit modal's multi-selects."""
+    cfg = _monitoring_cfg_or_400(db)
+    client = services_manager.monitoring_client(cfg)
+    try:
+        notifications = await client.list_integrations()
+        status_pages = await client.list_status_pages()
+    except MonitoringError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    pages = [{"id": p.get("id"),
+              "name": p.get("title") or p.get("name") or f"Page {p.get('id')}"}
+             for p in status_pages if isinstance(p, dict)]
+    return {"notifications": notifications, "status_pages": pages}
+
+
+@api.post("/monitors", status_code=201)
+async def create_monitor(body: MonitorCreate, db: Session = Depends(get_db)):
+    cfg = _monitoring_cfg_or_400(db)
+    name, url = _resolve_monitor_source(body, db)
+    # Multiple monitors per device/service are allowed on purpose (e.g. several
+    # URLs for one app), so there's no duplicate-source guard here. Kuvasz still
+    # enforces its own unique-name constraint and surfaces it as a 502.
+    provider = (cfg.get("provider") or "kuvasz").strip().lower()
+    client = services_manager.monitoring_client(cfg)
+    # Create the remote monitor first - a hard failure here means no local row
+    # (nothing dangling); notifications are applied atomically on create.
+    try:
+        created = await client.create_monitor({
+            "name": name, "url": url, "interval": body.interval,
+            "ssl_check": body.ssl_check, "enabled": body.enabled,
+            "integrations": body.notifications or [],
+        })
+    except Exception as exc:
+        logger.warning("Monitor create failed (%s): %s", name, exc)
+        raise HTTPException(status_code=502, detail=f"Could not create monitor: {exc}")
+
+    m = Monitor(
+        provider=provider, source_type=body.source_type, source_id=body.source_id,
+        name=name, target_url=url, remote_id=str(created.get("id")),
+        remote_ref=client.monitor_ref(created), enabled=body.enabled,
+        interval=body.interval, ssl_check=body.ssl_check,
+        notifications=json.dumps(body.notifications or []),
+        status_page_ids=json.dumps(sorted(set(body.status_page_ids or []))),
+        status="ok", detail="Monitor created",
+    )
+    # Status-page membership is a follow-up: a failure there leaves a working
+    # monitor (status=error + detail), retryable via PUT - don't unwind it.
+    errors: list[str] = []
+    for pid in sorted(set(body.status_page_ids or [])):
+        try:
+            await client.add_monitor_to_page(pid, m.remote_ref)
+        except Exception as exc:
+            errors.append(f"status page {pid}: {exc}")
+    if errors:
+        m.status, m.detail = "error", "; ".join(errors)
+    db.add(m)
+    db.commit()
+    db.refresh(m)
+    return _serialize_monitor(m)
+
+
+@api.put("/monitors/{monitor_id}")
+async def update_monitor(monitor_id: int, body: MonitorUpdate,
+                         db: Session = Depends(get_db)):
+    """Reconcile the monitor's settings + notification channels + status-page
+    membership onto the remote tool. Diffs the stored lists so only the changed
+    pages are touched; a rename also fixes the `http:<name>` refs on every page
+    the monitor is on (the page stores the literal string)."""
+    m = db.query(Monitor).filter(Monitor.id == monitor_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Monitor not found")
+    cfg = _monitoring_cfg_or_400(db)
+    client = services_manager.monitoring_client(cfg)
+    data = body.model_dump(exclude_unset=True)
+
+    norm: dict = {}
+    if "name" in data:
+        m.name = (data["name"] or "").strip() or m.name
+        norm["name"] = m.name
+    if "target_url" in data:
+        m.target_url = data["target_url"].strip()
+        norm["url"] = m.target_url
+    if "interval" in data:
+        m.interval = data["interval"]
+        norm["interval"] = data["interval"]
+    if "ssl_check" in data:
+        m.ssl_check = bool(data["ssl_check"])
+        norm["ssl_check"] = data["ssl_check"]
+    if "enabled" in data:
+        m.enabled = bool(data["enabled"])
+        norm["enabled"] = m.enabled
+    if "notifications" in data:
+        m.notifications = json.dumps(data["notifications"] or [])
+        norm["integrations"] = data["notifications"] or []
+
+    try:
+        if m.remote_id:
+            await client.update_monitor(m.remote_id, norm)
+    except MonitoringError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    # Status-page reconciliation (also handles a rename: the page stores the
+    # literal "http:<name>", so on a name change we re-point every page).
+    old_pages = set(_monitor_json_list(m.status_page_ids))
+    new_pages = set(data["status_page_ids"]) if "status_page_ids" in data else old_pages
+    new_ref = client.monitor_ref({"name": m.name})
+    old_ref = m.remote_ref or new_ref
+    ref_changed = new_ref != old_ref
+    to_remove = (old_pages - new_pages) | (old_pages & new_pages if ref_changed else set())
+    to_add = (new_pages - old_pages) | (old_pages & new_pages if ref_changed else set())
+    errors: list[str] = []
+    for pid in sorted(to_remove):
+        try:
+            await client.remove_monitor_from_page(pid, old_ref)
+        except Exception as exc:
+            errors.append(f"status page {pid} (remove): {exc}")
+    for pid in sorted(to_add):
+        try:
+            await client.add_monitor_to_page(pid, new_ref)
+        except Exception as exc:
+            errors.append(f"status page {pid} (add): {exc}")
+
+    m.remote_ref = new_ref
+    m.status_page_ids = json.dumps(sorted(new_pages))
+    m.status = "error" if errors else "ok"
+    m.detail = "; ".join(errors) if errors else "Updated"
+    db.commit()
+    db.refresh(m)
+    return _serialize_monitor(m)
+
+
+@api.delete("/monitors/{monitor_id}")
+async def delete_monitor(monitor_id: int, keep_remote: bool = False,
+                         db: Session = Depends(get_db)):
+    """Delete the monitor. By default removes it from any status pages and
+    deletes the remote monitor; `?keep_remote=true` unlinks only (row gone, the
+    monitor stays in the external tool)."""
+    m = db.query(Monitor).filter(Monitor.id == monitor_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Monitor not found")
+    errors: list[str] = []
+    if not keep_remote:
+        cfg = services_manager.get_integration_config(db, "monitoring")
+        if services_manager.integration_configured("monitoring", cfg):
+            client = services_manager.monitoring_client(cfg)
+            for pid in _monitor_json_list(m.status_page_ids):
+                try:
+                    await client.remove_monitor_from_page(pid, m.remote_ref)
+                except Exception as exc:
+                    errors.append(f"status page {pid}: {exc}")
+            if m.remote_id:
+                try:
+                    await client.delete_monitor(m.remote_id)
+                except Exception as exc:
+                    errors.append(f"remote monitor: {exc}")
+        else:
+            errors.append("Monitoring integration not configured - remote monitor left in place")
+    db.delete(m)
+    db.commit()
+    return {"ok": True, "kept_remote": keep_remote, "cleanup_errors": errors}
 
 
 app.include_router(api)

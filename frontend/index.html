@@ -69,7 +69,7 @@
 
         <!-- Dashboard -->
         <button @click="_destroyUpsCharts(); selectedId = null; page = 'dashboard'; tab = 'overview'"
-                :class="(!selectedId && page !== 'services') ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-card hover:text-gray-200'"
+                :class="(!selectedId && page === 'dashboard') ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-card hover:text-gray-200'"
                 class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm mb-1 transition-colors">
           <i class="fa-solid fa-gauge-high w-4 text-center"></i> Dashboard
         </button>
@@ -79,6 +79,13 @@
                 :class="(!selectedId && page === 'services') ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-card hover:text-gray-200'"
                 class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm mb-1 transition-colors">
           <i class="fa-solid fa-globe w-4 text-center"></i> Services
+        </button>
+
+        <!-- Monitoring (push devices/services into Kuvasz / Uptime Kuma) -->
+        <button @click="openMonitoring()"
+                :class="(!selectedId && page === 'monitoring') ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-card hover:text-gray-200'"
+                class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm mb-1 transition-colors">
+          <i class="fa-solid fa-heart-pulse w-4 text-center"></i> Monitoring
         </button>
 
         <!-- Device groups -->
@@ -400,6 +407,89 @@
                   No records found.
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- Monitoring (push devices/services into an external uptime monitor) -->
+      <template x-if="!selectedId && page === 'monitoring'">
+        <div class="p-6">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+            <h1 class="text-2xl font-bold text-white">Monitoring</h1>
+            <div class="flex gap-2">
+              <button @click="openIntegrationsModal()" class="btn-secondary">
+                <i class="fa-solid fa-gear mr-1"></i>Integrations
+              </button>
+              <button @click="openMonitorModal()" :disabled="!monitoringReady"
+                      :title="monitoringReady ? '' : 'Configure the monitoring integration first'"
+                      class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa-solid fa-plus mr-1"></i>Add Monitor
+              </button>
+            </div>
+          </div>
+          <p class="text-gray-400 text-sm mb-6">
+            Push a device or published service into your uptime monitor
+            (<span class="font-mono text-gray-300" x-text="monitorProviderLabel"></span>),
+            assign notification channels and add it to status pages - all reversible from here.
+          </p>
+
+          <!-- Integration-not-configured hint -->
+          <div x-show="!monitoringReady"
+               class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-4 mb-6 text-sm text-amber-200">
+            <i class="fa-solid fa-triangle-exclamation mr-1.5"></i>
+            The monitoring integration isn't configured yet.
+            Open <button @click="openIntegrationsModal()" class="underline hover:text-white">Integrations</button>,
+            pick a provider (Kuvasz) and enter its URL + API key.
+          </div>
+
+          <!-- Monitor list -->
+          <div x-show="monitoringReady" class="border border-border rounded-lg divide-y divide-border overflow-hidden">
+            <template x-for="m in monitors" :key="m.id">
+              <div class="flex items-center gap-3 px-4 py-3 bg-card/40">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="monitorStateDot(m)"
+                      :title="m.live || 'state unknown'"></span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-white font-medium truncate" x-text="m.name"></span>
+                    <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border shrink-0"
+                          :class="{ device: 'bg-blue-500/15 text-blue-300 border-blue-600/40',
+                                    service: 'bg-purple-500/15 text-purple-300 border-purple-600/40',
+                                    manual: 'bg-gray-600/20 text-gray-400 border-gray-600/40' }[m.source_type]"
+                          x-text="m.source_type"></span>
+                    <span x-show="m.status === 'error'" class="text-[10px] text-red-300" :title="m.detail">
+                      <i class="fa-solid fa-triangle-exclamation"></i>
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-500 truncate font-mono" x-text="m.target_url"></div>
+                </div>
+                <div class="hidden sm:flex items-center gap-3 text-xs text-gray-400 shrink-0">
+                  <span :title="(m.notifications || []).join(', ') || 'no notifications'">
+                    <i class="fa-solid fa-bell mr-1" :class="(m.notifications || []).length ? 'text-green-400' : 'text-gray-600'"></i>
+                    <span x-text="(m.notifications || []).length"></span>
+                  </span>
+                  <span :title="(m.status_page_ids || []).length + ' status page(s)'">
+                    <i class="fa-solid fa-rectangle-list mr-1" :class="(m.status_page_ids || []).length ? 'text-green-400' : 'text-gray-600'"></i>
+                    <span x-text="(m.status_page_ids || []).length"></span>
+                  </span>
+                  <span class="px-1.5 py-0.5 rounded"
+                        :class="m.enabled ? 'bg-green-500/15 text-green-300' : 'bg-gray-600/20 text-gray-400'"
+                        x-text="m.enabled ? 'enabled' : 'paused'"></span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  <button @click="openMonitorModal(m)" title="Edit"
+                          class="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-panel">
+                    <i class="fa-solid fa-pen"></i>
+                  </button>
+                  <button @click="deleteMonitor(m)" title="Delete"
+                          class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-panel">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </template>
+            <div x-show="!monitors.length" class="px-4 py-8 text-sm text-gray-500 text-center">
+              No monitors yet. Click <span class="text-gray-300">Add Monitor</span> to create one.
             </div>
           </div>
         </div>
@@ -1940,11 +2030,15 @@
                     class="input w-full">
               <option value="">- not linked -</option>
               <template x-for="c in containers" :key="c.endpoint_id + '|' + c.id">
+                <!-- Already-linked containers stay selectable (a container can
+                     back several services / URLs) but are dimmed + flagged. -->
                 <option :value="c.endpoint_id + '|' + c.name"
+                        :style="containerInUse(c) ? 'color:#6b7280' : ''"
                         x-text="c.name
                                 + (portainerMultiEnv ? ' @ ' + (c.endpoint_name || c.endpoint_id) : '')
                                 + (c.state !== 'running' ? ' (' + c.state + ')' : '')
-                                + (c.suggested_host ? ' - ' + c.suggested_host + (c.suggested_port ? ':' + c.suggested_port : '') : '')"></option>
+                                + (c.suggested_host ? ' - ' + c.suggested_host + (c.suggested_port ? ':' + c.suggested_port : '') : '')
+                                + (containerInUse(c) ? ' · already linked' : '')"></option>
               </template>
               <!-- Linked container that isn't in the live list (env offline / container gone) -->
               <template x-if="serviceModal.form._container_key && !containers.some(c => (c.endpoint_id + '|' + c.name) === serviceModal.form._container_key)">
@@ -2250,11 +2344,143 @@
                :class="integrationsModal.ptTest?.ok ? 'text-green-300 bg-green-500/10 border-green-600/40' : 'text-red-300 bg-red-500/10 border-red-600/40'"
                x-text="integrationsModal.ptTest?.detail"></div>
         </div>
+
+        <!-- Monitoring (optional - push devices/services into an uptime monitor) -->
+        <div class="border border-border rounded-lg p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="text-xs text-gray-400 uppercase tracking-wide font-semibold">
+              Monitoring <span class="normal-case font-normal text-gray-500">(optional)</span>
+            </div>
+            <button @click="testIntegration('monitoring')" :disabled="integrationsModal.busy" class="btn-secondary text-xs">
+              <i class="fa-solid fa-plug-circle-check mr-1"></i>Test
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label">Provider</label>
+              <select x-model="integrationsModal.monitoring.provider" class="input w-full">
+                <option value="kuvasz">Kuvasz</option>
+                <option value="uptime_kuma" disabled>Uptime Kuma (coming soon)</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">URL</label>
+              <input x-model="integrationsModal.monitoring.base_url" class="input w-full" placeholder="http://192.168.1.20:8080">
+            </div>
+          </div>
+          <div>
+            <label class="label">API key</label>
+            <input x-model="integrationsModal.monitoring.api_key" type="password" class="input w-full"
+                   :placeholder="integrations.monitoring?.configured ? '(unchanged - leave blank to keep)' : 'Kuvasz ADMIN_API_KEY'">
+          </div>
+          <p class="text-xs text-gray-500">
+            Kuvasz exposes a REST API keyed on its <span class="font-mono">ADMIN_API_KEY</span>.
+            Uptime Kuma has no management API (Socket.IO only) so it's not wired up yet.
+          </p>
+          <div x-show="integrationsModal.monTest" class="text-xs rounded px-3 py-2 border"
+               :class="integrationsModal.monTest?.ok ? 'text-green-300 bg-green-500/10 border-green-600/40' : 'text-red-300 bg-red-500/10 border-red-600/40'"
+               x-text="integrationsModal.monTest?.detail"></div>
+        </div>
       </div>
       <div class="px-6 py-4 border-t border-border flex justify-end gap-2">
         <button @click="integrationsModal.show = false" class="btn-secondary">Close</button>
         <button @click="saveIntegrations(true)" :disabled="integrationsModal.busy" class="btn-primary disabled:opacity-50">
           <i x-show="integrationsModal.busy" class="fa-solid fa-circle-notch fa-spin mr-1"></i>Save
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Add / Edit Monitor Modal ──────────────────────────────────────────── -->
+  <div x-show="monitorModal.show" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div @click.stop class="bg-panel border border-border rounded-xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-border">
+        <h3 class="text-lg font-bold text-white" x-text="monitorModal.editing ? 'Edit Monitor' : 'Add Monitor'"></h3>
+        <button @click="monitorModal.show = false" class="text-gray-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <!-- Source picker (add mode only) -->
+        <div x-show="!monitorModal.editing">
+          <label class="label">Source</label>
+          <select x-model="monitorModal.source" @change="onMonitorSourceChange()" class="input w-full">
+            <option value="manual">Manual URL</option>
+            <!-- Already-monitored items stay selectable (a source can have
+                 several monitors / URLs) but are dimmed + flagged. -->
+            <template x-for="c in monitorCandidates" :key="c.source_type + ':' + c.source_id">
+              <option :value="c.source_type + ':' + c.source_id"
+                      :style="c.monitored ? 'color:#6b7280' : ''"
+                      x-text="(c.source_type === 'device' ? '🖥 ' : '🌐 ') + c.name + (c.monitored ? ' · already monitored' : '')"></option>
+            </template>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Name</label>
+            <input x-model="monitorModal.form.name" class="input w-full" placeholder="My service">
+          </div>
+          <div>
+            <label class="label">Check interval (seconds)</label>
+            <input x-model.number="monitorModal.form.interval" type="number" min="5" class="input w-full">
+          </div>
+        </div>
+        <div>
+          <label class="label">Target URL</label>
+          <input x-model="monitorModal.form.target_url" class="input w-full font-mono" placeholder="https://app.example.com">
+        </div>
+        <div class="flex items-center gap-6">
+          <label class="flex items-center gap-2 text-sm text-gray-300">
+            <input type="checkbox" x-model="monitorModal.form.ssl_check" class="accent-blue-500"> Check SSL expiry
+          </label>
+          <label class="flex items-center gap-2 text-sm text-gray-300">
+            <input type="checkbox" x-model="monitorModal.form.enabled" class="accent-blue-500"> Enabled
+          </label>
+        </div>
+
+        <!-- Notification channels -->
+        <div>
+          <label class="label">Notification channels</label>
+          <div x-show="!monitorOptions.notifications.length" class="text-xs text-gray-500">
+            None configured in the monitoring tool.
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <template x-for="opt in monitorOptions.notifications" :key="opt.id">
+              <label class="flex items-center gap-1.5 text-sm px-2 py-1 rounded border cursor-pointer"
+                     :class="monitorModal.form.notifications.includes(opt.id) ? 'border-blue-500 bg-blue-500/10 text-blue-200' : 'border-border text-gray-400'">
+                <input type="checkbox" :value="opt.id" x-model="monitorModal.form.notifications" class="accent-blue-500">
+                <span x-text="opt.name || opt.id"></span>
+                <span class="text-[10px] text-gray-500" x-text="opt.type"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+
+        <!-- Status pages -->
+        <div>
+          <label class="label">Status pages</label>
+          <div x-show="!monitorOptions.status_pages.length" class="text-xs text-gray-500">
+            None configured in the monitoring tool.
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <template x-for="p in monitorOptions.status_pages" :key="p.id">
+              <label class="flex items-center gap-1.5 text-sm px-2 py-1 rounded border cursor-pointer"
+                     :class="monitorModal.form.status_page_ids.includes(p.id) ? 'border-blue-500 bg-blue-500/10 text-blue-200' : 'border-border text-gray-400'">
+                <input type="checkbox" :value="p.id" x-model.number="monitorModal.form.status_page_ids" class="accent-blue-500">
+                <span x-text="p.name"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+
+        <div x-show="monitorModal.error" class="text-xs rounded px-3 py-2 border text-red-300 bg-red-500/10 border-red-600/40"
+             x-text="monitorModal.error"></div>
+      </div>
+      <div class="px-6 py-4 border-t border-border flex justify-end gap-2">
+        <button @click="monitorModal.show = false" class="btn-secondary">Cancel</button>
+        <button @click="saveMonitor()" :disabled="monitorModal.busy" class="btn-primary disabled:opacity-50">
+          <i x-show="monitorModal.busy" class="fa-solid fa-circle-notch fa-spin mr-1"></i>Save
         </button>
       </div>
     </div>
@@ -2535,11 +2761,18 @@
       // DNS manager section (collapsed by default; loads on open)
       dns: { open: false, busy: false, error: '', domain: '', domains: [],
              records: [], form: { type: 'A', name: '', address: '' } },
-      integrations: { npm: {}, namecheap: {}, portainer: {} },
+      integrations: { npm: {}, namecheap: {}, portainer: {}, monitoring: {} },
       serviceModal: { show: false, busy: false, error: '', editing: null, form: {} },
       integrationsModal: { show: false, busy: false, npm: {}, namecheap: {}, portainer: {},
-                           npmTest: null, ncTest: null, ptTest: null },
+                           monitoring: {}, npmTest: null, ncTest: null, ptTest: null, monTest: null },
       _servicesPollTimer: null,
+
+      // ── Monitoring (push devices/services into Kuvasz / Uptime Kuma) ──────
+      monitors: [],
+      monitorCandidates: [],
+      monitorOptions: { notifications: [], status_pages: [] },
+      monitorModal: { show: false, busy: false, error: '', editing: null,
+                      source: 'manual', form: {} },
 
       // ── UPS graphs ────────────────────────────────────────────────────────
       upsRangeHours:   24,
@@ -2826,6 +3059,15 @@
           && (!s.portainer_endpoint_id || c.endpoint_id === s.portainer_endpoint_id)) || null;
       },
 
+      // Is this container already linked to a service? (Dims it in the picker
+      // but leaves it selectable - one container can back several URLs.) The
+      // service currently being edited doesn't count against its own link.
+      containerInUse(c) {
+        return this.services.some(s => s.portainer_container === c.name
+          && s.portainer_endpoint_id === c.endpoint_id
+          && s.id !== this.serviceModal.editing?.id);
+      },
+
       get portainerMultiEnv() {
         return new Set(this.containers.map(c => c.endpoint_id)).size > 1;
       },
@@ -2975,6 +3217,140 @@
           const r = await fetch('/api/integrations');
           if (r.ok) this.integrations = await r.json();
         } catch (e) { /* leave as-is */ }
+      },
+
+      // ── Monitoring ──────────────────────────────────────────────────────
+      get monitoringReady() {
+        return !!this.integrations.monitoring?.configured;
+      },
+
+      get monitorProviderLabel() {
+        return { kuvasz: 'Kuvasz', uptime_kuma: 'Uptime Kuma' }[this.integrations.monitoring?.provider] || 'not configured';
+      },
+
+      monitorStateDot(m) {
+        if (!m.enabled) return 'bg-gray-500';
+        const s = (m.live || '').toUpperCase();
+        if (s === 'UP') return 'bg-green-500';
+        if (s === 'DOWN') return 'bg-red-500';
+        return 'bg-yellow-500';  // unknown / not yet checked
+      },
+
+      async openMonitoring() {
+        this._destroyUpsCharts();
+        this.selectedId = null;
+        this.page = 'monitoring';
+        await this.loadIntegrations();
+        if (this.monitoringReady) {
+          this.loadMonitors();          // fire-and-forget; renders when it lands
+          this.loadMonitorOptions();
+        } else {
+          this.monitors = [];
+        }
+      },
+
+      async loadMonitors() {
+        try {
+          const r = await fetch('/api/monitors');
+          if (r.ok) this.monitors = await r.json();
+        } catch (e) { /* leave list as-is */ }
+      },
+
+      async loadMonitorOptions() {
+        try {
+          const r = await fetch('/api/monitoring/options');
+          if (r.ok) {
+            const d = await r.json();
+            this.monitorOptions = { notifications: d.notifications || [], status_pages: d.status_pages || [] };
+          }
+        } catch (e) { /* options stay empty - modal still works */ }
+      },
+
+      async openMonitorModal(m = null) {
+        this.monitorModal = {
+          show: true, busy: false, error: '', editing: m, source: 'manual',
+          form: m
+            ? { name: m.name, target_url: m.target_url, interval: m.interval ?? 60,
+                ssl_check: !!m.ssl_check, enabled: m.enabled,
+                notifications: [...(m.notifications || [])],
+                status_page_ids: [...(m.status_page_ids || [])] }
+            : { name: '', target_url: '', interval: 60, ssl_check: false, enabled: true,
+                notifications: [], status_page_ids: [] },
+        };
+        // Refresh options + candidates each open so newly-added channels/pages show.
+        this.loadMonitorOptions();
+        if (!m) {
+          try {
+            const r = await fetch('/api/monitors/candidates');
+            if (r.ok) this.monitorCandidates = await r.json();
+          } catch (e) { this.monitorCandidates = []; }
+        }
+      },
+
+      onMonitorSourceChange() {
+        const sel = this.monitorModal.source;
+        if (sel === 'manual') { return; }
+        const [type, id] = sel.split(':');
+        const c = this.monitorCandidates.find(x => x.source_type === type && String(x.source_id) === id);
+        if (c) {
+          this.monitorModal.form.name = c.name;
+          this.monitorModal.form.target_url = c.suggested_url;
+        }
+      },
+
+      async saveMonitor() {
+        const f = this.monitorModal.form;
+        if (!f.name || !f.target_url) { this.monitorModal.error = 'Name and target URL are required'; return; }
+        this.monitorModal.busy = true;
+        this.monitorModal.error = '';
+        try {
+          let r;
+          if (this.monitorModal.editing) {
+            r = await fetch(`/api/monitors/${this.monitorModal.editing.id}`, {
+              method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: f.name, target_url: f.target_url, interval: f.interval,
+                ssl_check: f.ssl_check, enabled: f.enabled,
+                notifications: f.notifications, status_page_ids: f.status_page_ids,
+              }),
+            });
+          } else {
+            let source_type = 'manual', source_id = null;
+            if (this.monitorModal.source !== 'manual') {
+              const [type, id] = this.monitorModal.source.split(':');
+              source_type = type; source_id = Number(id);
+            }
+            r = await fetch('/api/monitors', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                source_type, source_id, name: f.name, target_url: f.target_url,
+                interval: f.interval, ssl_check: f.ssl_check, enabled: f.enabled,
+                notifications: f.notifications, status_page_ids: f.status_page_ids,
+              }),
+            });
+          }
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { this.monitorModal.error = d.detail || `HTTP ${r.status}`; return; }
+          if (d.status === 'error') this.showToast('Saved with warnings: ' + (d.detail || ''), 'error');
+          else this.showToast('Monitor saved');
+          this.monitorModal.show = false;
+          await this.loadMonitors();
+        } catch (e) {
+          this.monitorModal.error = String(e);
+        } finally {
+          this.monitorModal.busy = false;
+        }
+      },
+
+      deleteMonitor(m) {
+        this.confirm(`Delete monitor "${m.name}"? This removes it from ${this.monitorProviderLabel} too.`, async () => {
+          const r = await fetch(`/api/monitors/${m.id}`, { method: 'DELETE' });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { this.showToast(d.detail || 'Failed to delete monitor', 'error'); return; }
+          if ((d.cleanup_errors || []).length) this.showToast('Removed locally, but: ' + d.cleanup_errors.join('; '), 'error');
+          else this.showToast('Monitor deleted');
+          await this.loadMonitors();
+        });
       },
 
       serviceSteps(s) {
@@ -3227,12 +3603,14 @@
         // Editable copies; secrets come back blanked and blank means "keep".
         const strip = (cfg) => { const { configured, ...rest } = cfg || {}; return rest; };
         this.integrationsModal = {
-          show: true, busy: false, npmTest: null, ncTest: null, ptTest: null,
+          show: true, busy: false, npmTest: null, ncTest: null, ptTest: null, monTest: null,
           npm: { base_url: '', email: '', password: '', le_email: '', ...strip(this.integrations.npm) },
           namecheap: { api_user: '', api_key: '', username: '', client_ip: '', domain: '',
                        record_type: 'CNAME', record_target: '', ...strip(this.integrations.namecheap) },
           portainer: { base_url: '', api_key: '', endpoint_id: '', docker_host_ip: '',
                        ...strip(this.integrations.portainer) },
+          monitoring: { provider: 'kuvasz', base_url: '', api_key: '',
+                        ...strip(this.integrations.monitoring) },
         };
       },
 
@@ -3251,6 +3629,7 @@
             save('npm', this.integrationsModal.npm),
             save('namecheap', this.integrationsModal.namecheap),
             save('portainer', this.integrationsModal.portainer),
+            save('monitoring', this.integrationsModal.monitoring),
           ]);
           if (results.every(r => r.ok)) {
             this.showToast('Integration settings saved');
@@ -3267,7 +3646,7 @@
       async testIntegration(name) {
         // Save first so the test runs against what's on screen.
         await this.saveIntegrations();
-        const key = { npm: 'npmTest', namecheap: 'ncTest', portainer: 'ptTest' }[name];
+        const key = { npm: 'npmTest', namecheap: 'ncTest', portainer: 'ptTest', monitoring: 'monTest' }[name];
         this.integrationsModal[key] = { ok: true, detail: 'Testing…' };
         try {
           const r = await fetch(`/api/integrations/${name}/test`, { method: 'POST' });
