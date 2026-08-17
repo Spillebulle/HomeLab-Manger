@@ -1,180 +1,212 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Spillebulle/homelab-manger/main/frontend/static/logo.png" alt="HomeLab Manger" width="120">
-</p>
-
-<h1 align="center">HomeLab Manger</h1>
-
-<p align="center">
-  Single-process FastAPI app for managing homelab gear - switches (D-Link, HPE, generic SNMP), servers (Cisco CIMC, Dell iDRAC, HPE iLO, Huawei iBMC via Redfish), and USB-connected UPSes - plus anything with an SNMP / SSH / Redfish / IPMI surface. JSON API + a static SPA in one binary.
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/banner.png">
+    <source media="(prefers-color-scheme: light)" srcset="docs/images/banner-paper.png">
+    <img src="docs/images/banner.png" alt="HomeLab Manger" width="560">
+  </picture>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/license/Spillebulle/homelab-manger?style=flat-square" alt="License">
-  <img src="https://github.com/Spillebulle/homelab-manger/actions/workflows/docker.yml/badge.svg" alt="Build">
+  <img src="https://img.shields.io/github/license/Spillebulle/homelab-manger?style=flat-square" alt="Licence">
+  <img src="https://img.shields.io/github/v/release/Spillebulle/homelab-manger?style=flat-square" alt="Release">
   <img src="https://img.shields.io/docker/pulls/spillebulle/homelab-manger?style=flat-square" alt="Docker pulls">
 </p>
 
----
+<p align="center">
+  One page for <b>the whole rack</b>: switches, servers, BMCs and UPSes, each read over the protocol it already speaks.
+</p>
 
-## Screenshots
+<p align="center">
+  SNMP · SSH · Redfish · CIMC XMLAPI · IPMI · USB HID · SQLite · one container, amd64 and arm64
+</p>
 
-### Dashboard
-![Dashboard](https://raw.githubusercontent.com/Spillebulle/homelab-manger/main/docs/Dashboard.png)
+![The dashboard: a sidebar listing devices grouped into switches and servers, beside a grid of device cards each showing a state dot, the address, the adapter and when it was last seen](docs/images/dashboard.png)
 
-### Services - publish apps via Nginx Proxy Manager + Namecheap
-![Services](https://raw.githubusercontent.com/Spillebulle/homelab-manger/main/docs/Services.png)
-
-### Switch - port view
-![Switch ports](https://raw.githubusercontent.com/Spillebulle/homelab-manger/main/docs/Ports-switch.png)
-
-### Server detail
-![Server](https://raw.githubusercontent.com/Spillebulle/homelab-manger/main/docs/Server.png)
-
-### UPS - power history graphs
-![UPS graphs](https://raw.githubusercontent.com/Spillebulle/homelab-manger/main/docs/UPS-graphs.png)
-
----
-
-## Features
-
-- **Switches** - D-Link DGS-3120 (SNMP + SSH), HPE OfficeConnect 1820 (SNMP + web UI), and generic SNMP. Port status, PoE control, VLAN management, and connected-device discovery (FDB/ARP with OUI vendor lookup).
-- **Servers / BMCs** - HP iLO, Dell iDRAC, Huawei iBMC (Redfish), and Cisco UCS C-series (CIMC XMLAPI/IPMI on ≤ 2.x, Redfish on 3.0+). Inventory, sensors, power draw, power actions, and one-click Java KVM launch.
-- **UPS** - USB-connected UPSes via the standard HID Power Device class (no NUT needed). Live status, history graphs, and **outage orchestration**: automatically and gracefully shut down selected devices when the UPS goes on battery and a threshold is crossed.
-- **Services** - publish an internal app at `https://name.your-domain` with one form: the DNS record (Namecheap), reverse-proxy host (Nginx Proxy Manager) and Let's Encrypt certificate are provisioned automatically, with per-step status and retry. Sync and import existing NPM hosts, edit or rename services (DNS + certificate re-provision automatically), and link them to Portainer containers for live state and forward-target suggestions across multiple Docker hosts.
-- **Events & notifications** - an event log (offline/online, UPS state, shutdown actions) with optional per-device Discord webhooks.
-- **JSON API** - everything the UI does, plus API keys and a charting-friendly `/graph` endpoint for Grafana / Metabase / etc. See [docs/API.md](docs/API.md).
-- **One process** - FastAPI serving the JSON API and a static SPA (Tailwind + Alpine.js, no build step), backed by SQLite. Credentials are encrypted at rest; auth is a single-user cookie session.
-
----
-
-> **Homelab use only.** Device credentials are encrypted at rest (Fernet), but the key lives next to the database, the app is single-user (login is brute-force throttled, but the rest of the API isn't rate limited), and HTTPS is opt-in - so it's still built for a trusted network. Don't expose it to anyone you don't trust.
+> Built for a trusted network. Device credentials are encrypted at rest, and
+> sign-in is throttled against guessing, but the app is single-user, the
+> encryption key sits beside the database, and HTTPS is opt-in. See
+> [what is not there yet](#what-is-not-there-yet) before you put it anywhere
+> public.
 
 ## Install
 
-The recommended way is the pre-built container - it includes every Python dependency, runs on amd64 *and* arm64, and is published for every tagged release (to both GHCR and Docker Hub).
+The container is the supported way to run it. It carries every dependency and
+is published for each release to both GitHub Container Registry and Docker Hub.
 
-### Option 1 - GitHub Container Registry (GHCR)
+```yaml
+# compose.yaml
+services:
+  homelab-manger:
+    image: ghcr.io/spillebulle/homelab-manger:0.7.0
+    ports:
+      - "8080:8080"
+    environment:
+      ADMIN_PASSWORD: pick-something
+    volumes:
+      - homelab-data:/data
+    restart: unless-stopped
+
+volumes:
+  homelab-data:
+```
+
+`docker compose up -d`, then open <http://localhost:8080> and sign in as
+`admin` with the password you set. `0.7.0` is the current release; `:latest`
+also exists and moves with every release, so pin a version if you would rather
+choose when to upgrade.
+
+The same image is on Docker Hub as `spillebulle/homelab-manger`. To run it
+without compose:
 
 ```bash
 docker run -d --name homelab-manger \
-  -p 8080:8080 \
-  -e ADMIN_PASSWORD=pick-something \
+  -p 8080:8080 -e ADMIN_PASSWORD=pick-something \
   -v homelab-data:/data \
-  --privileged -v /dev:/dev:ro \
-  ghcr.io/spillebulle/homelab-manger:latest
+  ghcr.io/spillebulle/homelab-manger:0.7.0
 ```
 
-### Option 2 - Docker Hub
-
-```bash
-docker run -d --name homelab-manger \
-  -p 8080:8080 \
-  -e ADMIN_PASSWORD=pick-something \
-  -v homelab-data:/data \
-  --privileged -v /dev:/dev:ro \
-  spillebulle/homelab-manger:latest
-```
-
-> Both registries serve the same image. Pin a version (e.g. `:v0.5.7`) in production instead of `:latest`.
->
-> **The `--privileged -v /dev:/dev:ro` line is only needed if you monitor a USB-connected UPS** (the `usbups` adapter) - it lets the container reach the UPS's `/dev/hidrawN` node, which changes when the UPS re-enumerates. Bind the **whole** `/dev` (not just `/dev/bus/usb`); read-only (`:ro`) is enough. Omit the line entirely for network-only devices (switches, servers, BMCs).
-
-### Option 3 - Build the image locally
+**Monitoring a USB-connected UPS needs two extra flags**, `--privileged` and
+`-v /dev:/dev:ro`, because the adapter reads the UPS through a `/dev/hidrawN`
+node that changes when the UPS re-enumerates. Network-only installations do not
+need either. To build the image yourself instead of pulling it:
 
 ```bash
 git clone https://github.com/Spillebulle/homelab-manger.git
 cd homelab-manger
 docker build -t homelab-manger .
-docker run -d --name homelab-manger \
-  -p 8080:8080 -e ADMIN_PASSWORD=pick-something -v homelab-data:/data \
-  homelab-manger
 ```
 
-### Option 4 - Run from source (no Docker)
+The `/data` volume holds the database, the session secret and the
+credential-encryption key. Keep it across restarts, or sign-ins and stored
+device credentials are lost.
 
-```powershell
-pip install -r requirements.txt
-$env:ADMIN_PASSWORD = "pick-something"
-$env:DB_PATH = "$PWD\homelab.db"   # default is /data/homelab.db on Linux
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080
-```
+## Switches
 
-### First sign-in
+<img align="right" width="380" src="docs/images/ports-switch.png" alt="A switch's Ports tab: a front-panel diagram with a coloured box per port, above a table of VLAN, link, speed, traffic and PoE state for all 48 ports">
 
-Open <http://localhost:8080>. Username is `admin`. The password is whatever you set in `ADMIN_PASSWORD` on first start; if you didn't set it, the default is `changeme` and the app logs a warning. Change it from the key icon in the sidebar.
+D-Link DGS-3120, HPE OfficeConnect 1820 and anything generic enough to answer
+IF-MIB. Port status, PoE state and per-port power, VLAN membership, and a
+Connected tab listing every learned MAC with its port and its vendor from the
+IEEE registry.
 
-The `/data` volume holds the SQLite database, the session-cookie secret, and the credential-encryption key - keep it across restarts so users stay logged in, the admin password isn't reset, and stored device credentials stay decryptable.
+Writes go over whichever surface the firmware actually supports, which is not
+always SNMP: PoE and VLANs on the DGS-3120 are driven over SSH, and the 1820 is
+driven through its web interface, because neither exposes them any other way.
+
+| Adapter | Reads | Writes |
+|---|---|---|
+| `dlink` | SNMP, SSH | SSH |
+| `hpe1820` | SNMP | Web interface |
+| `snmp` | SNMP | SNMP |
+
+## Servers and BMCs
+
+<img align="right" width="380" src="docs/images/server.png" alt="A server's Overview tab: tabs for hardware, storage, network, power, sensors and console, over cards for model, serial, power state and memory, and a row of power buttons">
+
+HP iLO, Dell iDRAC, Huawei iBMC and Cisco UCS C-series. Inventory down to the
+DIMM, live sensors and per-PSU wattage, power actions, and a KVM launch that
+downloads the console file the firmware itself generates.
+
+Cisco needs the right adapter for its firmware: `cimc` for anything before 3.0,
+`cimc_redfish` for 3.0 and later, which reads sensors far faster and adds BIOS
+and BMC detail the older interface never exposed.
+
+| Adapter | For |
+|---|---|
+| `ilo`, `idrac`, `redfish` | Anything speaking Redfish |
+| `ibmc` | Huawei iBMC, which rejects basic authentication |
+| `cimc` | UCS C-series, CIMC before 3.0 |
+| `cimc_redfish` | UCS C-series, CIMC 3.0 and later |
+
+## UPS and outage orchestration
+
+<img align="right" width="380" src="docs/images/ups-graphs.png" alt="The UPS Graphs tab: four charts over the last 24 hours, showing load and watts together, battery charge, runtime remaining and input voltage">
+
+A USB-connected UPS is read directly over the standard HID power device class,
+so most units work without NUT or any per-model configuration. Charge, runtime,
+load, watts and input voltage are stored as history and graphed over ranges from
+one hour to a custom window.
+
+The Shutdown tab turns that into a plan: pick which machines to bring down, in
+what order, at what charge or runtime threshold, and how long to wait between
+each. Test plan walks the whole thing and sends the notifications without
+powering anything off.
+
+## Publishing services
+
+<img align="right" width="380" src="docs/images/services.png" alt="The Services page: published services grouped by Docker host, each row showing its address, forward port, container chip and status marks, above a list of proxy hosts not managed here with an Import button each">
+
+One form publishes an internal app at `https://name.your-domain`: the DNS record
+in Namecheap, the proxy host in Nginx Proxy Manager and the Let's Encrypt
+certificate are provisioned in order, with per-step status and a retry that
+picks up where it stopped.
+
+Existing proxy hosts can be imported rather than recreated, renaming a service
+re-provisions its record and certificate, and a read-only Portainer connection
+fills in forward targets and shows each service's container state.
+
+## Monitoring
+
+Devices and published services can be registered as monitors in an external
+uptime monitor, with their notification channels and status-page membership
+managed from the same page. Kuvasz is the implemented provider. Every part of it
+reverses: pause a monitor, clear its channels, take it off a page, or delete it
+while leaving the remote monitor alone.
+
+## Events and notifications
+
+Every device keeps a log of what happened to it: went offline, came back, went
+on battery, was shut down by the outage plan. Each device can post those to a
+Discord webhook, with separate switches for offline, UPS state and shutdown
+actions.
+
+## What is not there yet
+
+| Not there | Detail |
+|---|---|
+| More than one user | One account, no roles, no registration, no multi-factor, no password-reset flow. Reset means deleting a row and restarting. |
+| Protection on a public network | Only sign-in is rate limited. There is no CORS allowlist and HTTPS is opt-in, so put it behind something if it faces the internet. |
+| Key rotation | Changing `CREDENTIAL_KEY` makes existing device credentials unreadable and every device has to be re-entered. |
+| Uptime Kuma | It has no management API, only a socket protocol, so it is listed and disabled rather than half-working. |
+| Serial-over-USB UPSes | Only the HID power device class is read. Megatec and Voltronic units that answer `Q1` over a serial bridge are not supported. |
+| Other DNS and proxy providers | Service publishing is Namecheap and Nginx Proxy Manager only, over HTTP-01. There is no DNS challenge. |
+| Routers and PDUs | Only through the generic SNMP adapter. There is no vendor adapter for either, and no device can be powered off through a PDU. |
 
 ## Configuration
 
-| Env var | Purpose |
-|---|---|
-| `DB_PATH` | SQLite path. Default `/data/homelab.db`. |
-| `ADMIN_USERNAME` | Initial admin username. Default `admin`. Only read on first start (when `auth_users` is empty). |
-| `ADMIN_PASSWORD` | Initial admin password. Default `changeme` (with a startup warning). Only read on first start. |
-| `SESSION_SECRET` | Cookie-signing secret. Auto-generated and persisted next to the DB if unset. |
-| `CREDENTIAL_KEY` | Fernet key used to encrypt device credentials at rest. Auto-generated and persisted next to the DB if unset (changing/losing it makes existing credentials undecryptable). |
-| `POLL_INTERVAL` | Default seconds between background polls. Default `60`; per-device overrides are set in the UI. |
-| `METRICS_RETENTION_DAYS` | Days of time-series history kept for graphs. Default `30`; `0` = unbounded. |
-| `PORT` | Port uvicorn listens on inside the container. Default `8080`. Pair with a matching `-p host:container` if you override. |
+These are the ones worth setting on the first run.
 
-## API
+| Variable | Default | What it does |
+|---|---|---|
+| `ADMIN_PASSWORD` | `changeme` | Password for the account created on first start. Read only while there is no account. |
+| `SESSION_SECRET` | generated | Signs the session cookie. Generated beside the database if unset. |
+| `CREDENTIAL_KEY` | generated | Encrypts stored device credentials. Generated beside the database if unset. |
+| `DB_PATH` | `/data/homelab.db` | Where the database lives. Needs setting when running from source. |
+| `PORT` | `8080` | Port the container listens on. Publish the matching host port. |
 
-Everything the web UI does is exposed over a JSON API, gated by either a cookie
-session or an API key (`Authorization: Bearer hlm_...` / `X-API-Key`). Create keys
-from the account area (the `</>` icon) or `POST /api/api-keys`.
+Every variable, and what is set in the interface rather than the environment,
+is in [`docs/configuration.md`](docs/configuration.md).
 
-See **[docs/API.md](docs/API.md)** for the full reference - authentication, every
-endpoint, device action vocabulary, credential keys, and curl examples.
+- The HTTP API, its authentication and every endpoint: [`docs/api.md`](docs/api.md).
+- Setting up Nginx Proxy Manager, Namecheap, Portainer and Kuvasz: [`docs/integrations/`](docs/integrations).
+- Symptoms, causes and fixes, including the per-vendor ones: [`docs/troubleshooting.md`](docs/troubleshooting.md).
+- What the interface is made of: [`docs/ui-conventions.md`](docs/ui-conventions.md).
 
-```bash
-curl -s http://homelab.lan:8080/api/devices -H "Authorization: Bearer hlm_your_key"
-```
-
-For dashboards (Grafana, Metabase, …) point your charting tool at the
-graph endpoint - a flat array of time-series points with proper UTC timestamps:
-
-```bash
-curl -s "http://homelab.lan:8080/api/devices/7/graph?metrics=watts,load_pct&hours=24" \
-  -H "Authorization: Bearer hlm_your_key"
-```
-
-## Resetting the admin password
-
-There's no "forgot password" flow. To reset:
+## Building from source
 
 ```powershell
-# Stop the app, then:
-python -c "import sqlite3; sqlite3.connect(r'$PWD\homelab.db').execute('DELETE FROM auth_users').connection.commit()"
-$env:ADMIN_PASSWORD = "new-password"
-# Start the app - it'll re-bootstrap the admin user.
+git clone https://github.com/Spillebulle/homelab-manger.git
+cd homelab-manger
+pip install -r requirements.txt
+$env:DB_PATH = "$PWD\homelab.db"
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080
 ```
 
-If you're running in Docker, attach to the volume and delete the row from the SQLite file the same way (or just remove the volume to start fresh).
+One FastAPI process serves the JSON API and the interface. There is no
+front-end build step.
 
-## Project layout
+## Licence
 
-```
-backend/
-  main.py          FastAPI routes (devices, actions, events, API keys, graph) + auth wiring
-  auth.py          bcrypt password hashing, cookie sessions, API-key auth
-  poller.py        Background asyncio poll loop (1 task per device) + outage orchestration
-  models.py        SQLAlchemy models (devices, cache, metrics, events, shutdown rules, notifications, auth, API keys)
-  adapters/        Per-vendor device drivers (snmp, dlink, hpe1820, cimc, cimc_redfish, redfish, usbups)
-  services_manager.py     Service publishing pipeline (DNS, proxy host, certificate)
-  services_npm.py         Nginx Proxy Manager REST client
-  services_namecheap.py   Namecheap DNS XML API client
-  services_portainer.py   Portainer read-only client (containers, environments)
-  events.py        Event log + Discord notification dispatch
-  credentials_crypto.py   Fernet encryption of stored credentials
-frontend/
-  index.html       SPA (Tailwind + Alpine.js, no build step)
-  login.html       Standalone login page
-  static/          Logo + any other public static assets
-docs/
-  API.md           Full HTTP API reference
-```
-
-## License
-
-Apache License 2.0. See [LICENSE](LICENSE).
+Apache License 2.0, in [LICENSE](LICENSE). Archivo is bundled under the SIL
+Open Font Licence, in [`frontend/static/fonts/OFL.txt`](frontend/static/fonts/OFL.txt).
+Icons are Lucide, under the ISC licence.
