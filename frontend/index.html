@@ -2217,110 +2217,111 @@
   </div><!-- /shell -->
 
   <!-- ── Add / Edit Device Modal ──────────────────────────────────────────── -->
-  <div x-show="showDeviceModal" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div @click.stop class="bg-panel border border-border rounded-xl w-full max-w-lg shadow-2xl">
-      <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-        <h2 class="font-semibold text-white" x-text="editingDevice ? 'Edit Device' : 'Add Device'"></h2>
-        <button @click="showDeviceModal = false" class="text-gray-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+  <div x-show="showDeviceModal" x-transition class="scrim">
+    <div @click.stop class="modal modal-lg">
+      <div class="modal-head">
+        <div class="flex-1 min-w-0">
+          <div class="title" x-text="editingDevice ? 'Edit device' : 'Add device'"></div>
+          <div class="sub">Name the device, pick the adapter that speaks to it, then test the connection before saving.</div>
+        </div>
+        <button @click="showDeviceModal = false" class="btn-icon" title="Close">
+          <svg class="icon"><use href="#i-x"/></svg>
         </button>
       </div>
-      <div class="p-6 space-y-4">
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="label">Name</label>
-            <input x-model="form.name" class="input w-full" placeholder="e.g. Core Switch">
-          </div>
-          <div>
-            <label class="label">Hostname / IP</label>
-            <input x-model="form.hostname" @input="onPreflightInputChanged()"
-                   class="input w-full" placeholder="192.168.1.1">
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="label">Device Type</label>
-            <select x-model="form.device_type" @change="onDeviceTypeChange()" class="input w-full">
-              <option value="switch">Switch</option>
-              <option value="server">Server</option>
-              <option value="router">Router</option>
-              <option value="pdu">PDU</option>
-              <option value="ups">UPS</option>
-            </select>
-          </div>
-          <div class="relative">
-            <label class="label flex items-center gap-2">
-              <span>Adapter</span>
-              <!-- Info pill - popover lists services this adapter needs to
-                   reach. Keeps the user from playing whack-a-mole with
-                   firewalls after a device shows up as offline. -->
-              <button type="button"
-                      @click.stop="showAdapterInfo = !showAdapterInfo"
-                      :title="showAdapterInfo ? 'Hide service requirements' : 'Show service requirements'"
-                      class="w-4 h-4 inline-flex items-center justify-center rounded-full
-                             bg-gray-700 hover:bg-blue-600 text-gray-200 text-[10px] leading-none
-                             transition-colors">
-                <i class="fa-solid fa-question"></i>
-              </button>
-            </label>
-            <select x-model="form.adapter_type"
-                    @change="onPreflightInputChanged()"
-                    class="input w-full">
-              <template x-for="opt in adapterOptionsForType(form.device_type)" :key="opt.value">
-                <option :value="opt.value" x-text="opt.label"></option>
-              </template>
-            </select>
 
-            <!-- Service-requirements popover. Click-away handled by the
-                 @click.away on the panel itself. -->
-            <div x-show="showAdapterInfo"
-                 x-transition.opacity
-                 @click.away="showAdapterInfo = false"
-                 class="absolute right-0 top-full mt-2 z-30 w-96 bg-card border border-border
-                        rounded-lg shadow-2xl p-4 text-xs">
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-gray-300 font-semibold">Required services</div>
-                <button @click="showAdapterInfo = false" class="text-gray-500 hover:text-gray-200">
-                  <i class="fa-solid fa-xmark"></i>
+      <div class="modal-body space-y-5">
+
+        <div class="space-y-3">
+          <div class="eyebrow">General</div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="field-label">Name</label>
+              <input x-model="form.name" class="input" placeholder="e.g. Core switch">
+            </div>
+            <div>
+              <label class="field-label">Hostname or IP</label>
+              <input x-model="form.hostname" @input="onPreflightInputChanged()"
+                     class="input" placeholder="192.168.1.1">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="field-label">Device type</label>
+              <select x-model="form.device_type" @change="onDeviceTypeChange()" class="input">
+                <option value="switch">Switch</option>
+                <option value="server">Server</option>
+                <option value="router">Router</option>
+                <option value="pdu">PDU</option>
+                <option value="ups">UPS</option>
+              </select>
+            </div>
+            <div class="relative">
+              <label class="field-label flex items-center gap-2">
+                <span>Adapter</span>
+                <!-- Info pill - popover lists services this adapter needs to
+                     reach. Keeps the user from playing whack-a-mole with
+                     firewalls after a device shows up as offline. -->
+                <button type="button"
+                        @click.stop="showAdapterInfo = !showAdapterInfo"
+                        :title="showAdapterInfo ? 'Hide service requirements' : 'Show service requirements'"
+                        class="btn-icon sm">
+                  <svg class="icon"><use href="#i-circle-help"/></svg>
                 </button>
-              </div>
-              <template x-if="!adapterRequirements[form.adapter_type]?.length">
-                <div class="text-gray-500 italic">No metadata for this adapter.</div>
-              </template>
-              <ul class="space-y-2">
-                <template x-for="req in (adapterRequirements[form.adapter_type] || [])" :key="req.service">
-                  <li class="border-l-2 pl-3"
-                      :class="req.required ? 'border-blue-500' : 'border-gray-600'">
-                    <div class="flex items-center gap-2">
-                      <span class="font-mono text-gray-200" x-text="req.service"></span>
-                      <span class="text-gray-500" x-text="'/' + (req.transport || '?')"></span>
-                      <span class="text-gray-400 font-mono" x-show="req.port" x-text="':' + req.port"></span>
-                      <span x-show="!req.required"
-                            class="ml-auto text-[10px] uppercase text-amber-300 tracking-wide">optional</span>
-                    </div>
-                    <div class="text-gray-500 mt-0.5" x-text="req.description"></div>
-                  </li>
+              </label>
+              <select x-model="form.adapter_type"
+                      @change="onPreflightInputChanged()"
+                      class="input">
+                <template x-for="opt in adapterOptionsForType(form.device_type)" :key="opt.value">
+                  <option :value="opt.value" x-text="opt.label"></option>
                 </template>
-              </ul>
-              <div class="text-gray-600 text-[10px] mt-3 leading-snug">
-                Required services must be reachable from the HomeLab-Manger host. Optional
-                services degrade gracefully (the adapter falls back away from them).
+              </select>
+
+              <!-- Service-requirements popover. Click-away handled by the
+                   @click.away on the panel itself. -->
+              <div x-show="showAdapterInfo"
+                   x-transition.opacity
+                   @click.away="showAdapterInfo = false"
+                   class="popover absolute right-0 top-full mt-2 w-96 p-3">
+                <div class="flex items-center gap-2 mb-2">
+                  <div class="eyebrow flex-1">Required services</div>
+                  <button @click="showAdapterInfo = false" class="btn-icon sm" title="Close">
+                    <svg class="icon"><use href="#i-x"/></svg>
+                  </button>
+                </div>
+                <template x-if="!adapterRequirements[form.adapter_type]?.length">
+                  <div class="t-small t-dim">No metadata for this adapter.</div>
+                </template>
+                <ul class="space-y-2">
+                  <template x-for="req in (adapterRequirements[form.adapter_type] || [])" :key="req.service">
+                    <li>
+                      <div class="flex items-center gap-2">
+                        <span class="figure" x-text="req.service"></span>
+                        <span class="t-small t-dim" x-text="'/' + (req.transport || '?')"></span>
+                        <span class="figure" x-show="req.port" x-text="':' + req.port"></span>
+                        <span x-show="!req.required" class="badge ml-auto">Optional</span>
+                      </div>
+                      <div class="t-small t-muted" x-text="req.description"></div>
+                    </li>
+                  </template>
+                </ul>
+                <div class="t-tiny mt-3">
+                  Required services must be reachable from the HomeLab-Manger host. Optional
+                  services degrade gracefully, so the adapter falls back away from them.
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="label">Poll interval (seconds)</label>
-            <input x-model="form.poll_interval" type="number" min="5" step="1"
-                   class="input w-full" placeholder="60 (default)">
-          </div>
-          <div class="flex items-end">
-            <p class="text-xs text-gray-500 pb-2">
-              How often this device is polled. Leave blank for the default (60s).
-              Minimum 5s.
-            </p>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="field-label">Poll interval (seconds)</label>
+              <input x-model="form.poll_interval" type="number" min="5" step="1"
+                     class="input" placeholder="60 (default)">
+              <div class="field-hint">
+                How often this device is polled. Leave blank for the default of 60 s.
+                The minimum is 5 s.
+              </div>
+            </div>
           </div>
         </div>
 
@@ -2328,102 +2329,100 @@
              connection. Each row uses the same colour scheme as the status
              dots on the device list so the meaning is consistent. -->
         <template x-if="preflight.status">
-          <div class="border rounded-lg p-3"
+          <div class="notice"
                :class="{
-                 'border-blue-500/40 bg-blue-500/5':   preflight.status === 'running',
-                 'border-green-500/40 bg-green-500/5': preflight.status === 'ok',
-                 'border-amber-500/40 bg-amber-500/5': preflight.status === 'partial',
-                 'border-red-500/40 bg-red-500/5':     preflight.status === 'fail',
+                 'notice-good':     preflight.status === 'ok',
+                 'notice-critical': preflight.status === 'fail',
                }">
-            <div class="flex items-center gap-2 text-sm font-semibold mb-2">
-              <template x-if="preflight.status === 'running'">
-                <span class="text-blue-300">
-                  <i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Testing connectivity…
-                </span>
-              </template>
-              <template x-if="preflight.status === 'ok'">
-                <span class="text-green-300">
-                  <i class="fa-solid fa-check-circle mr-1"></i>All required services reachable
-                </span>
-              </template>
-              <template x-if="preflight.status === 'partial'">
-                <span class="text-amber-300">
-                  <i class="fa-solid fa-triangle-exclamation mr-1"></i>Required services OK, optional ones unreachable
-                </span>
-              </template>
-              <template x-if="preflight.status === 'fail'">
-                <span class="text-red-300">
-                  <i class="fa-solid fa-circle-xmark mr-1"></i>One or more required services unreachable
-                </span>
-              </template>
+            <svg class="icon spinner" x-show="preflight.status === 'running'"><use href="#i-loader-circle"/></svg>
+            <svg class="icon" x-show="preflight.status === 'ok'"><use href="#i-circle-check"/></svg>
+            <svg class="icon" x-show="preflight.status === 'partial'"><use href="#i-triangle-alert"/></svg>
+            <svg class="icon" x-show="preflight.status === 'fail'"><use href="#i-circle-x"/></svg>
+            <div class="flex-1 min-w-0">
+              <div class="t-control t-strong">
+                <template x-if="preflight.status === 'running'">
+                  <span>Testing connectivity.</span>
+                </template>
+                <template x-if="preflight.status === 'ok'">
+                  <span>All required services reachable.</span>
+                </template>
+                <template x-if="preflight.status === 'partial'">
+                  <span>Required services reachable, optional ones are not.</span>
+                </template>
+                <template x-if="preflight.status === 'fail'">
+                  <span>One or more required services are unreachable.</span>
+                </template>
+              </div>
+              <ul class="space-y-2 mt-2">
+                <template x-for="r in preflight.results" :key="r.service">
+                  <li>
+                    <div class="flex items-center gap-2">
+                      <span class="badge"
+                            :class="{
+                              'badge-good':     r.ok === true,
+                              'badge-critical': r.ok === false && r.required,
+                              'badge-caution':  r.ok === false && !r.required,
+                            }"
+                            x-text="r.service"></span>
+                      <span class="figure" x-text="':' + r.port"></span>
+                      <span x-show="!r.required" class="badge">Optional</span>
+                      <span x-show="r.skipped" class="badge">Not tested</span>
+                    </div>
+                    <div class="t-small t-muted" x-text="r.detail"></div>
+                  </li>
+                </template>
+              </ul>
             </div>
-            <ul class="space-y-1.5 text-xs">
-              <template x-for="r in preflight.results" :key="r.service">
-                <li class="flex items-start gap-2">
-                  <span class="w-2 h-2 mt-1.5 rounded-full shrink-0"
-                        :class="{
-                          'bg-green-500':  r.ok === true,
-                          'bg-red-500':    r.ok === false && r.required,
-                          'bg-amber-500':  r.ok === false && !r.required,
-                          'bg-gray-500':   r.skipped || r.ok === null,
-                        }"></span>
-                  <div class="flex-1">
-                    <span class="font-mono text-gray-200" x-text="r.service"></span>
-                    <span class="text-gray-500" x-text="':' + r.port"></span>
-                    <span x-show="!r.required" class="text-[10px] uppercase ml-1 text-amber-300">opt</span>
-                    <div class="text-gray-400" x-text="r.detail"></div>
-                  </div>
-                </li>
-              </template>
-            </ul>
           </div>
         </template>
 
         <!-- SNMP / D-Link / HPE 1820 credentials -->
         <template x-if="['snmp','dlink','hpe1820'].includes(form.adapter_type)">
-          <div class="space-y-3 border border-border rounded-lg p-4">
-            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">SNMP</div>
+          <div class="space-y-3">
+            <div class="eyebrow">SNMP</div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="label">Community (read)</label>
-                <input x-model="form.credentials.community" class="input w-full" placeholder="public">
+                <label class="field-label">Community (read)</label>
+                <input x-model="form.credentials.community" class="input" placeholder="public">
               </div>
               <div>
-                <label class="label">Community (write)</label>
-                <input x-model="form.credentials.write_community" class="input w-full" placeholder="private">
+                <label class="field-label">Community (write)</label>
+                <input x-model="form.credentials.write_community" class="input" placeholder="private">
               </div>
             </div>
             <template x-if="form.adapter_type === 'dlink'">
               <div class="grid grid-cols-3 gap-3">
                 <div>
-                  <label class="label">SSH User</label>
-                  <input x-model="form.credentials.ssh_username" class="input w-full" placeholder="admin">
+                  <label class="field-label">SSH user</label>
+                  <input x-model="form.credentials.ssh_username" class="input" placeholder="admin">
                 </div>
                 <div>
-                  <label class="label">SSH Password</label>
-                  <input x-model="form.credentials.ssh_password" type="password" class="input w-full"
+                  <label class="field-label">SSH password</label>
+                  <input x-model="form.credentials.ssh_password" type="password" class="input"
                          :placeholder="editingDevice ? '••••••••' : ''">
+                  <div class="field-hint" x-show="editingDevice">Unchanged, leave blank to keep.</div>
                 </div>
                 <div>
-                  <label class="label">SSH Port</label>
-                  <input x-model="form.credentials.ssh_port" class="input w-full" placeholder="22">
+                  <label class="field-label">SSH port</label>
+                  <input x-model="form.credentials.ssh_port" class="input" placeholder="22">
                 </div>
               </div>
             </template>
             <template x-if="form.adapter_type === 'hpe1820'">
               <div class="grid grid-cols-3 gap-3">
                 <div>
-                  <label class="label">Web User</label>
-                  <input x-model="form.credentials.web_username" class="input w-full" placeholder="admin">
+                  <label class="field-label">Web user</label>
+                  <input x-model="form.credentials.web_username" class="input" placeholder="admin">
                 </div>
                 <div>
-                  <label class="label">Web Password</label>
-                  <input x-model="form.credentials.web_password" type="password" class="input w-full"
+                  <label class="field-label">Web password</label>
+                  <input x-model="form.credentials.web_password" type="password" class="input"
                          :placeholder="editingDevice ? '••••••••' : ''">
+                  <div class="field-hint" x-show="editingDevice">Unchanged, leave blank to keep.</div>
                 </div>
                 <div>
-                  <label class="label">Web Port</label>
-                  <input x-model="form.credentials.web_port" class="input w-full" placeholder="80">
+                  <label class="field-label">Web port</label>
+                  <input x-model="form.credentials.web_port" class="input" placeholder="80">
                 </div>
               </div>
             </template>
@@ -2432,88 +2431,100 @@
 
         <!-- USB UPS (HID Power Device) - no network creds; identity + rating -->
         <template x-if="form.adapter_type === 'usbups'">
-          <div class="space-y-3 border border-border rounded-lg p-4">
-            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">USB device</div>
-            <p class="text-xs text-gray-500">
-              Leave VID/PID blank to auto-detect the first USB HID Power Device.
-              The UPS must be passed through to the container (<code>--device</code>).
-              Hostname above is just a label for USB UPSs.
+          <div class="space-y-3">
+            <div class="eyebrow">USB device</div>
+            <p class="t-small t-muted">
+              Leave the vendor and product IDs blank to auto-detect the first USB HID power device.
+              The UPS must be passed through to the container with <code class="figure">--device</code>.
+              The hostname above is only a label for USB UPSs.
             </p>
             <div class="grid grid-cols-3 gap-3">
               <div>
-                <label class="label">USB Vendor ID</label>
-                <input x-model="form.credentials.usb_vid" class="input w-full" placeholder="auto (e.g. 0x06da)">
+                <label class="field-label">USB vendor ID</label>
+                <input x-model="form.credentials.usb_vid" class="input" placeholder="auto (e.g. 0x06da)">
               </div>
               <div>
-                <label class="label">USB Product ID</label>
-                <input x-model="form.credentials.usb_pid" class="input w-full" placeholder="auto (e.g. 0xffff)">
+                <label class="field-label">USB product ID</label>
+                <input x-model="form.credentials.usb_pid" class="input" placeholder="auto (e.g. 0xffff)">
               </div>
               <div>
-                <label class="label">Rated Power (W)</label>
-                <input x-model="form.credentials.nominal_real_power" class="input w-full" placeholder="1320">
+                <label class="field-label">Rated power (W)</label>
+                <input x-model="form.credentials.nominal_real_power" class="input" placeholder="1320">
+                <div class="field-hint">
+                  Used to compute watts from load percentage when the UPS does not
+                  report real power itself. The VI-2200 does not.
+                </div>
               </div>
             </div>
-            <p class="text-xs text-gray-500">
-              Rated power is used to compute watts from load % when the UPS
-              doesn't report real power directly (the VI-2200 doesn't).
-            </p>
           </div>
         </template>
 
         <!-- CIMC / Redfish credentials -->
         <template x-if="['cimc','cimc_redfish','redfish','ilo','idrac','ibmc'].includes(form.adapter_type)">
-          <div class="space-y-3 border border-border rounded-lg p-4">
-            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Credentials</div>
+          <div class="space-y-3">
+            <div class="eyebrow">Credentials</div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="label">Username</label>
-                <input x-model="form.credentials.username" class="input w-full" placeholder="admin">
+                <label class="field-label">Username</label>
+                <input x-model="form.credentials.username" class="input" placeholder="admin">
               </div>
               <div>
-                <label class="label">Password</label>
-                <input x-model="form.credentials.password" type="password" class="input w-full"
+                <label class="field-label">Password</label>
+                <input x-model="form.credentials.password" type="password" class="input"
                        :placeholder="editingDevice ? '••••••••' : ''">
+                <div class="field-hint" x-show="editingDevice">Unchanged, leave blank to keep.</div>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="label">HTTPS Port</label>
-                <input x-model="form.credentials.port" class="input w-full" placeholder="443">
+                <label class="field-label">HTTPS port</label>
+                <input x-model="form.credentials.port" class="input" placeholder="443">
               </div>
               <template x-if="['redfish','ilo','idrac','ibmc'].includes(form.adapter_type)">
                 <div>
-                  <label class="label">System ID</label>
-                  <input x-model="form.credentials.system_id" class="input w-full" placeholder="1">
+                  <label class="field-label">System ID</label>
+                  <input x-model="form.credentials.system_id" class="input" placeholder="1">
                 </div>
               </template>
             </div>
           </div>
         </template>
 
-        <div>
-          <label class="label">Notes (optional)</label>
-          <input x-model="form.notes" class="input w-full" placeholder="Rack location, comments…">
+        <div class="space-y-3">
+          <div class="eyebrow">Notes</div>
+          <div>
+            <label class="field-label">Notes (optional)</label>
+            <input x-model="form.notes" class="input" placeholder="Rack location, comments">
+          </div>
         </div>
       </div>
-      <div class="px-6 py-4 border-t border-border flex items-center justify-between">
-        <button x-show="editingDevice" @click="deleteDevice()"
-                class="text-red-400 hover:text-red-300 text-sm transition-colors">
-          <i class="fa-solid fa-trash mr-1"></i> Delete
+
+      <div class="modal-foot">
+        <button x-show="editingDevice" @click="deleteDevice()" class="btn btn-danger"
+                title="Delete this device, its cached readings and its history">
+          <svg class="icon"><use href="#i-trash-2"/></svg>Delete
         </button>
+        <div class="note" x-show="editingDevice">
+          Deleting removes the device, its cached readings and its metric history.
+        </div>
         <div class="flex gap-2 ml-auto">
           <button @click="runPreflight()"
                   :disabled="preflight.status === 'running' || !form.hostname"
-                  class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="btn"
                   title="Probe each service this adapter relies on without saving the device">
             <template x-if="preflight.status === 'running'">
-              <span><i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Testing…</span>
+              <span class="inline-flex items-center gap-2">
+                <svg class="icon spinner"><use href="#i-loader-circle"/></svg>Testing
+              </span>
             </template>
             <template x-if="preflight.status !== 'running'">
-              <span><i class="fa-solid fa-plug-circle-check mr-1"></i>Test connection</span>
+              <span class="inline-flex items-center gap-2">
+                <svg class="icon"><use href="#i-plug-zap"/></svg>Test connection
+              </span>
             </template>
           </button>
-          <button @click="showDeviceModal = false" class="btn-secondary">Cancel</button>
-          <button @click="saveDevice()" class="btn-primary">
+          <button @click="showDeviceModal = false" class="btn btn-ghost">Cancel</button>
+          <button @click="saveDevice()" class="btn btn-primary">
             <span x-text="editingDevice ? 'Save' : 'Add'"></span>
           </button>
         </div>
@@ -2522,190 +2533,212 @@
   </div>
 
   <!-- ── Add / Edit Service Modal ──────────────────────────────────────────── -->
-  <div x-show="serviceModal.show" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div @click.stop class="bg-panel border border-border rounded-xl w-full max-w-lg shadow-2xl flex flex-col" style="max-height:90vh">
-      <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-        <h2 class="font-semibold text-white"
-            x-text="{ add: 'Add Service', edit: 'Edit Service', import: 'Import Service' }[serviceModal.mode] || 'Add Service'"></h2>
-        <button @click="serviceModal.show = false" class="text-gray-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+  <div x-show="serviceModal.show" x-transition class="scrim">
+    <div @click.stop class="modal modal-md">
+      <div class="modal-head">
+        <div class="flex-1 min-w-0">
+          <div class="title"
+               x-text="{ add: 'Add service', edit: 'Edit service', import: 'Import service' }[serviceModal.mode] || 'Add service'"></div>
+          <div class="sub">Publish an app on your network at a public address, with DNS, a proxy host and a certificate.</div>
+        </div>
+        <button @click="serviceModal.show = false" class="btn-icon" title="Close">
+          <svg class="icon"><use href="#i-x"/></svg>
         </button>
       </div>
-      <div class="p-6 space-y-4 overflow-y-auto">
+      <div class="modal-body space-y-5">
 
         <!-- Portainer container picker - fills the forward target -->
         <template x-if="integrations.portainer?.configured">
-          <div>
-            <label class="label">Docker container (Portainer)</label>
-            <!-- Composite endpoint|name values: container names repeat across
-                 Docker hosts (every box runs a watchtower), so name alone is
-                 ambiguous in multi-environment setups. -->
-            <select x-model="serviceModal.form._container_key" @change="onServiceContainerChange()"
-                    class="input w-full">
-              <option value="">- not linked -</option>
-              <template x-for="c in containers" :key="c.endpoint_id + '|' + c.id">
-                <!-- Already-linked containers stay selectable (a container can
-                     back several services / URLs) but are dimmed + flagged. -->
-                <option :value="c.endpoint_id + '|' + c.name"
-                        :style="containerInUse(c) ? 'color:#6b7280' : ''"
-                        x-text="c.name
-                                + (portainerMultiEnv ? ' @ ' + (c.endpoint_name || c.endpoint_id) : '')
-                                + (c.state !== 'running' ? ' (' + c.state + ')' : '')
-                                + (c.suggested_host ? ' - ' + c.suggested_host + (c.suggested_port ? ':' + c.suggested_port : '') : '')
-                                + (containerInUse(c) ? ' · already linked' : '')"></option>
-              </template>
-              <!-- Linked container that isn't in the live list (env offline / container gone) -->
-              <template x-if="serviceModal.form._container_key && !containers.some(c => (c.endpoint_id + '|' + c.name) === serviceModal.form._container_key)">
-                <option :value="serviceModal.form._container_key"
-                        x-text="serviceModal.form.portainer_container + ' (not found)'"></option>
-              </template>
-            </select>
-            <p class="text-xs text-gray-500 mt-1" x-show="!containersError && !selectedContainerNoHost">
-              Picking a container fills the forward target below and shows the container's state on the list.
-            </p>
-            <p class="text-xs text-amber-300/90 mt-1" x-show="selectedContainerNoHost">
-              <i class="fa-solid fa-triangle-exclamation mr-1"></i>
-              No host IP is known for this container's environment, so the forward host wasn't filled.
-              Set "LAN IP of the Portainer host" under Integrations, or type the IP manually.
-            </p>
-            <p class="text-xs text-red-300 mt-1" x-show="containersError"
-               x-text="'Could not load containers: ' + containersError"></p>
-          </div>
-        </template>
-
-        <div>
-          <label class="label">Name</label>
-          <input x-model="serviceModal.form.name" class="input w-full" placeholder="e.g. Jellyfin">
-        </div>
-        <div>
-          <label class="label">Public address</label>
-          <div class="flex items-center gap-1">
-            <span class="text-sm text-gray-500">https://</span>
-            <input x-model="serviceModal.form.subdomain" class="input flex-1" placeholder="jellyfin"
-                   :disabled="serviceModal.mode === 'import'"
-                   :class="serviceModal.mode === 'import' && 'opacity-60'">
-            <!-- Domain: static suffix for imports and single-domain configs,
-                 a picker when several domains are configured -->
-            <template x-if="serviceModal.mode === 'import' || ncDomains.length < 2">
-              <span class="text-sm text-gray-400 font-mono"
-                    x-text="'.' + (serviceModal.mode === 'import' ? serviceModal.importDomain
-                                   : (serviceModal.form.domain || ncDomains[0] || '…'))"></span>
-            </template>
-            <template x-if="serviceModal.mode !== 'import' && ncDomains.length > 1">
-              <select x-model="serviceModal.form.domain" class="input font-mono">
-                <template x-for="d in ncDomains" :key="d">
-                  <option :value="d" x-text="'.' + d"></option>
+          <div class="space-y-3">
+            <div class="eyebrow">Source</div>
+            <div>
+              <label class="field-label">Docker container (Portainer)</label>
+              <!-- Composite endpoint|name values: container names repeat across
+                   Docker hosts (every box runs a watchtower), so name alone is
+                   ambiguous in multi-environment setups. -->
+              <select x-model="serviceModal.form._container_key" @change="onServiceContainerChange()"
+                      class="input">
+                <option value="">Not linked</option>
+                <template x-for="c in containers" :key="c.endpoint_id + '|' + c.id">
+                  <!-- Already-linked containers stay selectable (a container can
+                       back several services / URLs) but are dimmed + flagged. -->
+                  <option :value="c.endpoint_id + '|' + c.name"
+                          :style="containerInUse(c) ? 'color: var(--text-dim)' : ''"
+                          x-text="c.name
+                                  + (portainerMultiEnv ? ' @ ' + (c.endpoint_name || c.endpoint_id) : '')
+                                  + (c.state !== 'running' ? ' (' + c.state + ')' : '')
+                                  + (c.suggested_host ? ' - ' + c.suggested_host + (c.suggested_port ? ':' + c.suggested_port : '') : '')
+                                  + (containerInUse(c) ? ' · already linked' : '')"></option>
+                </template>
+                <!-- Linked container that isn't in the live list (env offline / container gone) -->
+                <template x-if="serviceModal.form._container_key && !containers.some(c => (c.endpoint_id + '|' + c.name) === serviceModal.form._container_key)">
+                  <option :value="serviceModal.form._container_key"
+                          x-text="serviceModal.form.portainer_container + ' (not found)'"></option>
                 </template>
               </select>
-            </template>
-          </div>
-          <p class="text-xs text-gray-500 mt-1" x-show="serviceModal.mode === 'add'">Lowercase letters, digits and hyphens.</p>
-          <p class="text-xs text-gray-500 mt-1" x-show="serviceModal.mode === 'import'">
-            The address comes from the existing proxy host - import first, then edit to rename.
-          </p>
-          <p class="text-xs text-amber-300/90 mt-1"
-             x-show="serviceModal.mode === 'edit' && (serviceModal.form.subdomain !== serviceModal.editing?.subdomain
-                     || serviceModal.form.domain !== serviceModal.editing?.domain)">
-            <i class="fa-solid fa-triangle-exclamation mr-1"></i>Changing the address moves the service:
-            the old DNS record is removed and a new record + certificate are provisioned.
-          </p>
-        </div>
-
-        <!-- Per-service DNS record (not applicable to imports - their DNS is pre-existing) -->
-        <template x-if="serviceModal.mode !== 'import'">
-          <div>
-            <label class="label">DNS record</label>
-            <div class="grid grid-cols-3 gap-2">
-              <select x-model="serviceModal.form.dns_record_type" class="input col-span-1">
-                <option value="" x-text="'Default (' + (integrations.namecheap?.record_type || 'CNAME') + ')'"></option>
-                <option value="CNAME">CNAME</option>
-                <option value="A">A</option>
-              </select>
-              <input x-model="serviceModal.form.dns_record_target" class="input col-span-2"
-                     :placeholder="(serviceModal.form.dns_record_type || integrations.namecheap?.record_type || 'CNAME') === 'A'
-                                   ? 'IP address'
-                                   : 'default: ' + (integrations.namecheap?.record_target || serviceModal.form.domain || ncDomains[0] || 'domain root')">
+              <div class="field-hint" x-show="!containersError && !selectedContainerNoHost">
+                Picking a container fills the forward target below and shows the container's state on the list.
+              </div>
+              <div class="notice mt-2" x-show="selectedContainerNoHost">
+                <svg class="icon"><use href="#i-triangle-alert"/></svg>
+                <span>
+                  No host IP is known for this container's environment, so the forward host was not filled in.
+                  Set the LAN IP of the Portainer host under Integrations, or type the IP in yourself.
+                </span>
+              </div>
+              <div class="notice notice-critical mt-2" x-show="containersError">
+                <svg class="icon"><use href="#i-circle-x"/></svg>
+                <span x-text="'Could not load containers: ' + containersError"></span>
+              </div>
             </div>
-            <p class="text-xs text-gray-500 mt-1">
-              Leave on Default unless this service needs its own record type or target
-              (e.g. an A record pointing at a different IP).
-            </p>
           </div>
         </template>
-        <div>
-          <label class="label">Forward to (the app on your network)</label>
-          <div class="grid grid-cols-5 gap-2">
-            <select x-model="serviceModal.form.forward_scheme" class="input col-span-1">
-              <option value="http">http</option>
-              <option value="https">https</option>
-            </select>
-            <input x-model="serviceModal.form.forward_host" class="input col-span-3" placeholder="192.168.1.50">
-            <input x-model="serviceModal.form.forward_port" type="number" min="1" max="65535"
-                   class="input col-span-1" placeholder="8080">
+
+        <div class="space-y-3">
+          <div class="eyebrow">Address</div>
+          <div>
+            <label class="field-label">Name</label>
+            <input x-model="serviceModal.form.name" class="input" placeholder="e.g. Jellyfin">
+          </div>
+          <div>
+            <label class="field-label">Public address</label>
+            <div class="flex items-center gap-2">
+              <span class="figure">https://</span>
+              <input x-model="serviceModal.form.subdomain" class="input flex-1" placeholder="jellyfin"
+                     :disabled="serviceModal.mode === 'import'">
+              <!-- Domain: static suffix for imports and single-domain configs,
+                   a picker when several domains are configured -->
+              <template x-if="serviceModal.mode === 'import' || ncDomains.length < 2">
+                <span class="figure"
+                      x-text="'.' + (serviceModal.mode === 'import' ? serviceModal.importDomain
+                                     : (serviceModal.form.domain || ncDomains[0] || '…'))"></span>
+              </template>
+              <template x-if="serviceModal.mode !== 'import' && ncDomains.length > 1">
+                <select x-model="serviceModal.form.domain" class="input w-48">
+                  <template x-for="d in ncDomains" :key="d">
+                    <option :value="d" x-text="'.' + d"></option>
+                  </template>
+                </select>
+              </template>
+            </div>
+            <div class="field-hint" x-show="serviceModal.mode === 'add'">Lowercase letters, digits and hyphens.</div>
+            <div class="field-hint" x-show="serviceModal.mode === 'import'">
+              The address comes from the existing proxy host. Import first, then edit to rename.
+            </div>
+            <div class="notice mt-2"
+                 x-show="serviceModal.mode === 'edit' && (serviceModal.form.subdomain !== serviceModal.editing?.subdomain
+                         || serviceModal.form.domain !== serviceModal.editing?.domain)">
+              <svg class="icon"><use href="#i-triangle-alert"/></svg>
+              <span>
+                Changing the address moves the service. The old DNS record is removed, and a new
+                record and certificate are provisioned.
+              </span>
+            </div>
+          </div>
+
+          <!-- Per-service DNS record (not applicable to imports - their DNS is pre-existing) -->
+          <template x-if="serviceModal.mode !== 'import'">
+            <div>
+              <label class="field-label">DNS record</label>
+              <div class="grid grid-cols-3 gap-2">
+                <select x-model="serviceModal.form.dns_record_type" class="input col-span-1">
+                  <option value="" x-text="'Default (' + (integrations.namecheap?.record_type || 'CNAME') + ')'"></option>
+                  <option value="CNAME">CNAME</option>
+                  <option value="A">A</option>
+                </select>
+                <input x-model="serviceModal.form.dns_record_target" class="input col-span-2"
+                       :placeholder="(serviceModal.form.dns_record_type || integrations.namecheap?.record_type || 'CNAME') === 'A'
+                                     ? 'IP address'
+                                     : 'default: ' + (integrations.namecheap?.record_target || serviceModal.form.domain || ncDomains[0] || 'domain root')">
+              </div>
+              <div class="field-hint">
+                Leave this on Default unless the service needs its own record type or target,
+                such as an A record pointing at a different IP.
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div class="space-y-3">
+          <div class="eyebrow">Forward target</div>
+          <div>
+            <label class="field-label">Forward to the app on your network</label>
+            <div class="grid grid-cols-5 gap-2">
+              <select x-model="serviceModal.form.forward_scheme" class="input col-span-1">
+                <option value="http">http</option>
+                <option value="https">https</option>
+              </select>
+              <input x-model="serviceModal.form.forward_host" class="input col-span-3" placeholder="192.168.1.50">
+              <input x-model="serviceModal.form.forward_port" type="number" min="1" max="65535"
+                     class="input col-span-1" placeholder="8080">
+            </div>
           </div>
         </div>
 
         <!-- NPM proxy-host toggles -->
-        <div class="border border-border rounded-lg p-4">
-          <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Proxy settings (NPM)</div>
-          <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-300">
-            <label class="flex items-center gap-2">
-              <input type="checkbox" x-model="serviceModal.form.websockets" class="accent-blue-600">
-              WebSockets support
+        <div class="space-y-3">
+          <div class="eyebrow">Proxy settings (NPM)</div>
+          <div class="grid grid-cols-2 gap-x-4">
+            <label class="set-row">
+              <span class="set-label">WebSockets support</span>
+              <input type="checkbox" x-model="serviceModal.form.websockets" class="toggle">
             </label>
-            <label class="flex items-center gap-2">
-              <input type="checkbox" x-model="serviceModal.form.block_exploits" class="accent-blue-600">
-              Block common exploits
+            <label class="set-row">
+              <span class="set-label">Block common exploits</span>
+              <input type="checkbox" x-model="serviceModal.form.block_exploits" class="toggle">
             </label>
-            <label class="flex items-center gap-2">
-              <input type="checkbox" x-model="serviceModal.form.caching_enabled" class="accent-blue-600">
-              Cache assets
+            <label class="set-row">
+              <span class="set-label">Cache assets</span>
+              <input type="checkbox" x-model="serviceModal.form.caching_enabled" class="toggle">
             </label>
-            <label class="flex items-center gap-2">
-              <input type="checkbox" x-model="serviceModal.form.ssl_forced" class="accent-blue-600">
-              Force SSL
+            <label class="set-row">
+              <span class="set-label">Force SSL</span>
+              <input type="checkbox" x-model="serviceModal.form.ssl_forced" class="toggle">
             </label>
-            <label class="flex items-center gap-2">
-              <input type="checkbox" x-model="serviceModal.form.http2_support" class="accent-blue-600">
-              HTTP/2 support
+            <label class="set-row">
+              <span class="set-label">HTTP/2 support</span>
+              <input type="checkbox" x-model="serviceModal.form.http2_support" class="toggle">
             </label>
-            <label class="flex items-center gap-2">
-              <input type="checkbox" x-model="serviceModal.form.hsts_enabled" class="accent-blue-600">
-              HSTS enabled
+            <label class="set-row">
+              <span class="set-label">HSTS enabled</span>
+              <input type="checkbox" x-model="serviceModal.form.hsts_enabled" class="toggle">
             </label>
-            <label class="flex items-center gap-2" :class="!serviceModal.form.hsts_enabled && 'opacity-40'">
-              <input type="checkbox" x-model="serviceModal.form.hsts_subdomains" class="accent-blue-600"
+            <label class="set-row" :class="!serviceModal.form.hsts_enabled && 'opacity-40'">
+              <span class="set-label">HSTS subdomains</span>
+              <input type="checkbox" x-model="serviceModal.form.hsts_subdomains" class="toggle"
                      :disabled="!serviceModal.form.hsts_enabled">
-              HSTS subdomains
             </label>
           </div>
-          <p class="text-xs text-gray-500 mt-2">
-            SSL-related toggles take effect once the certificate is attached.
-          </p>
+          <div class="field-hint">
+            The SSL toggles take effect once the certificate is attached.
+          </div>
         </div>
 
-        <div x-show="serviceModal.error" x-text="serviceModal.error"
-             class="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded px-3 py-2"></div>
-        <p class="text-xs text-gray-500" x-show="serviceModal.mode === 'add'">
-          On save: a <span class="font-mono" x-text="(integrations.namecheap?.record_type || 'CNAME')"></span> record is created in Namecheap,
+        <div class="notice notice-critical" x-show="serviceModal.error">
+          <svg class="icon"><use href="#i-circle-x"/></svg>
+          <span x-text="serviceModal.error"></span>
+        </div>
+        <p class="t-small t-muted" x-show="serviceModal.mode === 'add'">
+          On save, a <span class="figure" x-text="(integrations.namecheap?.record_type || 'CNAME')"></span> record is created in Namecheap,
           a proxy host in Nginx Proxy Manager, and a Let's Encrypt certificate is requested.
-          The certificate can take a minute - progress shows on the list.
+          The certificate can take a minute, and progress shows on the list.
         </p>
-        <p class="text-xs text-gray-500" x-show="serviceModal.mode === 'import'">
-          On import: the proxy host is kept (custom config preserved); any edits above sync to NPM,
-          and a Let's Encrypt certificate is issued if the host doesn't have one.
+        <p class="t-small t-muted" x-show="serviceModal.mode === 'import'">
+          On import, the proxy host is kept with its custom config. Any edits above sync to NPM,
+          and a Let's Encrypt certificate is issued if the host does not have one.
         </p>
       </div>
-      <div class="px-6 py-4 border-t border-border flex items-center justify-between gap-2">
+      <div class="modal-foot">
         <button x-show="serviceModal.mode === 'edit'" @click="unlinkService()"
                 title="Stop managing this service here. Nothing is removed: the DNS record, proxy host and certificate all stay."
-                class="text-gray-400 hover:text-gray-200 text-sm transition-colors">
-          <i class="fa-solid fa-link-slash mr-1"></i> Unlink
+                class="btn btn-ghost">
+          <svg class="icon"><use href="#i-unlink"/></svg>Unlink
         </button>
+        <div class="note">Nothing is provisioned until you save.</div>
         <div class="flex gap-2 ml-auto">
-          <button @click="serviceModal.show = false" class="btn-secondary">Cancel</button>
-          <button @click="saveService()" :disabled="serviceModal.busy" class="btn-primary disabled:opacity-50">
-            <i x-show="serviceModal.busy" class="fa-solid fa-circle-notch fa-spin mr-1"></i>
+          <button @click="serviceModal.show = false" class="btn btn-ghost">Cancel</button>
+          <button @click="saveService()" :disabled="serviceModal.busy" class="btn btn-primary">
+            <svg class="icon spinner" x-show="serviceModal.busy"><use href="#i-loader-circle"/></svg>
             <span x-text="{ add: 'Create', edit: 'Save', import: 'Import' }[serviceModal.mode] || 'Create'"></span>
           </button>
         </div>
@@ -2714,437 +2747,496 @@
   </div>
 
   <!-- ── Integrations Modal (NPM + Namecheap settings) ─────────────────────── -->
-  <div x-show="integrationsModal.show" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div @click.stop class="bg-panel border border-border rounded-xl w-full max-w-xl shadow-2xl flex flex-col" style="max-height:90vh">
-      <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-        <h2 class="font-semibold text-white"><i class="fa-solid fa-gear mr-1.5"></i>Service Integrations</h2>
-        <button @click="integrationsModal.show = false" class="text-gray-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+  <div x-show="integrationsModal.show" x-transition class="scrim">
+    <div @click.stop class="modal modal-lg">
+      <div class="modal-head">
+        <div class="flex-1 min-w-0">
+          <div class="title">Service integrations</div>
+          <div class="sub">Credentials for the tools this app drives on your behalf. Each one can be tested before saving.</div>
+        </div>
+        <button @click="integrationsModal.show = false" class="btn-icon" title="Close">
+          <svg class="icon"><use href="#i-x"/></svg>
         </button>
       </div>
-      <div class="p-6 space-y-5 overflow-y-auto">
+      <div class="modal-body space-y-5">
 
         <!-- NPM -->
-        <div class="border border-border rounded-lg p-4 space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Nginx Proxy Manager</div>
-            <button @click="testIntegration('npm')" :disabled="integrationsModal.busy" class="btn-secondary text-xs">
-              <i class="fa-solid fa-plug-circle-check mr-1"></i>Test
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <div class="eyebrow flex-1">Nginx Proxy Manager</div>
+            <button @click="testIntegration('npm')" :disabled="integrationsModal.busy" class="btn btn-outline btn-sm">
+              <svg class="icon"><use href="#i-plug-zap"/></svg>Test
             </button>
           </div>
           <div>
-            <label class="label">URL (the NPM admin UI, e.g. http://192.168.1.2:81)</label>
-            <input x-model="integrationsModal.npm.base_url" class="input w-full" placeholder="http://192.168.1.2:81">
+            <label class="field-label">URL of the NPM admin UI</label>
+            <input x-model="integrationsModal.npm.base_url" class="input" placeholder="http://192.168.1.2:81">
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="label">Admin email</label>
-              <input x-model="integrationsModal.npm.email" class="input w-full" placeholder="admin@example.com">
+              <label class="field-label">Admin email</label>
+              <input x-model="integrationsModal.npm.email" class="input" placeholder="admin@example.com">
             </div>
             <div>
-              <label class="label">Admin password</label>
-              <input x-model="integrationsModal.npm.password" type="password" class="input w-full"
+              <label class="field-label">Admin password</label>
+              <input x-model="integrationsModal.npm.password" type="password" class="input"
                      :placeholder="integrations.npm?.configured ? '(unchanged - leave blank to keep)' : ''">
             </div>
           </div>
           <div>
-            <label class="label">Let's Encrypt email (expiry notices go here)</label>
-            <input x-model="integrationsModal.npm.le_email" class="input w-full" placeholder="you@example.com">
+            <label class="field-label">Let's Encrypt email</label>
+            <input x-model="integrationsModal.npm.le_email" class="input" placeholder="you@example.com">
+            <div class="field-hint">Expiry notices go to this address.</div>
           </div>
-          <div x-show="integrationsModal.npmTest" class="text-xs rounded px-3 py-2 border"
-               :class="integrationsModal.npmTest?.ok ? 'text-green-300 bg-green-500/10 border-green-600/40' : 'text-red-300 bg-red-500/10 border-red-600/40'"
-               x-text="integrationsModal.npmTest?.detail"></div>
+          <div x-show="integrationsModal.npmTest" class="notice"
+               :class="integrationsModal.npmTest?.ok ? 'notice-good' : 'notice-critical'">
+            <svg class="icon"><use href="#i-info"/></svg>
+            <span x-text="integrationsModal.npmTest?.detail"></span>
+          </div>
         </div>
 
         <!-- Namecheap -->
-        <div class="border border-border rounded-lg p-4 space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="text-xs text-gray-400 uppercase tracking-wide font-semibold">Namecheap DNS</div>
-            <button @click="testIntegration('namecheap')" :disabled="integrationsModal.busy" class="btn-secondary text-xs">
-              <i class="fa-solid fa-plug-circle-check mr-1"></i>Test
+        <div class="space-y-3 hairline-t pt-4">
+          <div class="flex items-center gap-2">
+            <div class="eyebrow flex-1">Namecheap DNS</div>
+            <button @click="testIntegration('namecheap')" :disabled="integrationsModal.busy" class="btn btn-outline btn-sm">
+              <svg class="icon"><use href="#i-plug-zap"/></svg>Test
             </button>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="label">API user</label>
-              <input x-model="integrationsModal.namecheap.api_user" class="input w-full" placeholder="myuser">
+              <label class="field-label">API user</label>
+              <input x-model="integrationsModal.namecheap.api_user" class="input" placeholder="myuser">
             </div>
             <div>
-              <label class="label">API key</label>
-              <input x-model="integrationsModal.namecheap.api_key" type="password" class="input w-full"
+              <label class="field-label">API key</label>
+              <input x-model="integrationsModal.namecheap.api_key" type="password" class="input"
                      :placeholder="integrations.namecheap?.configured ? '(unchanged - leave blank to keep)' : ''">
             </div>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="label">Account username</label>
-              <input x-model="integrationsModal.namecheap.username" class="input w-full" placeholder="usually same as API user">
+              <label class="field-label">Account username</label>
+              <input x-model="integrationsModal.namecheap.username" class="input" placeholder="usually same as API user">
             </div>
             <div>
-              <label class="label">Whitelisted client IP</label>
-              <input x-model="integrationsModal.namecheap.client_ip" class="input w-full" placeholder="your public IP">
+              <label class="field-label">Whitelisted client IP</label>
+              <input x-model="integrationsModal.namecheap.client_ip" class="input" placeholder="your public IP">
             </div>
           </div>
           <div>
-            <label class="label">Domain(s) - comma-separated, first is the default</label>
-            <input x-model="integrationsModal.namecheap.domain" class="input w-full" placeholder="example.com, other.net">
+            <label class="field-label">Domains</label>
+            <input x-model="integrationsModal.namecheap.domain" class="input" placeholder="example.com, other.net">
+            <div class="field-hint">Comma-separated. The first one is the default.</div>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="label">New-record type</label>
-              <select x-model="integrationsModal.namecheap.record_type" class="input w-full">
+              <label class="field-label">New-record type</label>
+              <select x-model="integrationsModal.namecheap.record_type" class="input">
                 <option value="CNAME">CNAME (recommended)</option>
                 <option value="A">A</option>
               </select>
             </div>
             <div>
-              <label class="label">Record target</label>
-              <input x-model="integrationsModal.namecheap.record_target" class="input w-full"
+              <label class="field-label">Record target</label>
+              <input x-model="integrationsModal.namecheap.record_target" class="input"
                      :placeholder="integrationsModal.namecheap.record_type === 'A' ? 'public IP' : (integrationsModal.namecheap.domain || 'defaults to the domain root')">
             </div>
           </div>
-          <p class="text-xs text-gray-500">
-            CNAME to the domain root means every subdomain follows your public IP automatically.
-            Requests must come from the whitelisted IP (Profile → Tools → API Access in Namecheap).
-          </p>
-          <div x-show="integrationsModal.ncTest" class="text-xs rounded px-3 py-2 border"
-               :class="integrationsModal.ncTest?.ok ? 'text-green-300 bg-green-500/10 border-green-600/40' : 'text-red-300 bg-red-500/10 border-red-600/40'"
-               x-text="integrationsModal.ncTest?.detail"></div>
+          <div class="field-hint">
+            A CNAME to the domain root means every subdomain follows your public IP automatically.
+            Requests must come from the whitelisted IP, set under Profile, Tools, API Access in Namecheap.
+          </div>
+          <div x-show="integrationsModal.ncTest" class="notice"
+               :class="integrationsModal.ncTest?.ok ? 'notice-good' : 'notice-critical'">
+            <svg class="icon"><use href="#i-info"/></svg>
+            <span x-text="integrationsModal.ncTest?.detail"></span>
+          </div>
         </div>
 
         <!-- Portainer (optional - container links + forward-target suggestions) -->
-        <div class="border border-border rounded-lg p-4 space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="text-xs text-gray-400 uppercase tracking-wide font-semibold">
-              Portainer <span class="normal-case font-normal text-gray-500">(optional)</span>
-            </div>
-            <button @click="testIntegration('portainer')" :disabled="integrationsModal.busy" class="btn-secondary text-xs">
-              <i class="fa-solid fa-plug-circle-check mr-1"></i>Test
+        <div class="space-y-3 hairline-t pt-4">
+          <div class="flex items-center gap-2">
+            <div class="eyebrow flex-1">Portainer (optional)</div>
+            <button @click="testIntegration('portainer')" :disabled="integrationsModal.busy" class="btn btn-outline btn-sm">
+              <svg class="icon"><use href="#i-plug-zap"/></svg>Test
             </button>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="label">URL (e.g. https://192.168.1.10:9443)</label>
-              <input x-model="integrationsModal.portainer.base_url" class="input w-full" placeholder="https://192.168.1.10:9443">
+              <label class="field-label">URL</label>
+              <input x-model="integrationsModal.portainer.base_url" class="input" placeholder="https://192.168.1.10:9443">
             </div>
             <div>
-              <label class="label">API access token</label>
-              <input x-model="integrationsModal.portainer.api_key" type="password" class="input w-full"
+              <label class="field-label">API access token</label>
+              <input x-model="integrationsModal.portainer.api_key" type="password" class="input"
                      :placeholder="integrations.portainer?.configured ? '(unchanged - leave blank to keep)' : 'ptr_…'">
             </div>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="label">Environment ID (blank = all environments)</label>
-              <input x-model="integrationsModal.portainer.endpoint_id" class="input w-full" placeholder="all">
+              <label class="field-label">Environment ID</label>
+              <input x-model="integrationsModal.portainer.endpoint_id" class="input" placeholder="all">
+              <div class="field-hint">Leave blank for all environments.</div>
             </div>
             <div>
-              <label class="label">LAN IP of the Portainer host</label>
-              <input x-model="integrationsModal.portainer.docker_host_ip" class="input w-full" placeholder="e.g. 192.168.1.10">
+              <label class="field-label">LAN IP of the Portainer host</label>
+              <input x-model="integrationsModal.portainer.docker_host_ip" class="input" placeholder="e.g. 192.168.1.10">
             </div>
           </div>
-          <p class="text-xs text-amber-300/90" x-show="integrationsModal.portainer.base_url && !integrationsModal.portainer.docker_host_ip">
-            <i class="fa-solid fa-triangle-exclamation mr-1"></i>
-            Set the LAN IP of the Portainer host: Portainer's API doesn't expose it, and it's needed
-            to suggest forward targets for containers running on that machine.
-          </p>
-          <p class="text-xs text-gray-500">
-            Read-only: used to suggest forward targets from container ports and show container
-            state next to linked services. Agent environments get their host IP from their own
-            endpoint URL automatically; the LAN IP above covers containers on the Portainer
-            host itself. Create a token under My account &rarr; Access tokens.
-          </p>
-          <div x-show="integrationsModal.ptTest" class="text-xs rounded px-3 py-2 border"
-               :class="integrationsModal.ptTest?.ok ? 'text-green-300 bg-green-500/10 border-green-600/40' : 'text-red-300 bg-red-500/10 border-red-600/40'"
-               x-text="integrationsModal.ptTest?.detail"></div>
+          <div class="notice" x-show="integrationsModal.portainer.base_url && !integrationsModal.portainer.docker_host_ip">
+            <svg class="icon"><use href="#i-triangle-alert"/></svg>
+            <span>
+              Set the LAN IP of the Portainer host. Portainer's API does not expose it, and it is
+              needed to suggest forward targets for containers running on that machine.
+            </span>
+          </div>
+          <div class="field-hint">
+            Read-only. It is used to suggest forward targets from container ports and to show
+            container state next to linked services. Agent environments get their host IP from
+            their own endpoint URL automatically, and the LAN IP above covers containers on the
+            Portainer host itself. Create a token under My account, Access tokens.
+          </div>
+          <div x-show="integrationsModal.ptTest" class="notice"
+               :class="integrationsModal.ptTest?.ok ? 'notice-good' : 'notice-critical'">
+            <svg class="icon"><use href="#i-info"/></svg>
+            <span x-text="integrationsModal.ptTest?.detail"></span>
+          </div>
         </div>
 
         <!-- Monitoring (optional - push devices/services into an uptime monitor) -->
-        <div class="border border-border rounded-lg p-4 space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="text-xs text-gray-400 uppercase tracking-wide font-semibold">
-              Monitoring <span class="normal-case font-normal text-gray-500">(optional)</span>
-            </div>
-            <button @click="testIntegration('monitoring')" :disabled="integrationsModal.busy" class="btn-secondary text-xs">
-              <i class="fa-solid fa-plug-circle-check mr-1"></i>Test
+        <div class="space-y-3 hairline-t pt-4">
+          <div class="flex items-center gap-2">
+            <div class="eyebrow flex-1">Monitoring (optional)</div>
+            <button @click="testIntegration('monitoring')" :disabled="integrationsModal.busy" class="btn btn-outline btn-sm">
+              <svg class="icon"><use href="#i-plug-zap"/></svg>Test
             </button>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="label">Provider</label>
-              <select x-model="integrationsModal.monitoring.provider" class="input w-full">
+              <label class="field-label">Provider</label>
+              <select x-model="integrationsModal.monitoring.provider" class="input">
                 <option value="kuvasz">Kuvasz</option>
                 <option value="uptime_kuma" disabled>Uptime Kuma (coming soon)</option>
               </select>
             </div>
             <div>
-              <label class="label">URL</label>
-              <input x-model="integrationsModal.monitoring.base_url" class="input w-full" placeholder="http://192.168.1.20:8080">
+              <label class="field-label">URL</label>
+              <input x-model="integrationsModal.monitoring.base_url" class="input" placeholder="http://192.168.1.20:8080">
             </div>
           </div>
           <div>
-            <label class="label">API key</label>
-            <input x-model="integrationsModal.monitoring.api_key" type="password" class="input w-full"
+            <label class="field-label">API key</label>
+            <input x-model="integrationsModal.monitoring.api_key" type="password" class="input"
                    :placeholder="integrations.monitoring?.configured ? '(unchanged - leave blank to keep)' : 'Kuvasz ADMIN_API_KEY'">
           </div>
-          <p class="text-xs text-gray-500">
-            Kuvasz exposes a REST API keyed on its <span class="font-mono">ADMIN_API_KEY</span>.
-            Uptime Kuma has no management API (Socket.IO only) so it's not wired up yet.
-          </p>
-          <div x-show="integrationsModal.monTest" class="text-xs rounded px-3 py-2 border"
-               :class="integrationsModal.monTest?.ok ? 'text-green-300 bg-green-500/10 border-green-600/40' : 'text-red-300 bg-red-500/10 border-red-600/40'"
-               x-text="integrationsModal.monTest?.detail"></div>
+          <div class="field-hint">
+            Kuvasz exposes a REST API keyed on its <span class="figure">ADMIN_API_KEY</span>.
+            Uptime Kuma has no management API, only Socket.IO, so it is not wired up yet.
+          </div>
+          <div x-show="integrationsModal.monTest" class="notice"
+               :class="integrationsModal.monTest?.ok ? 'notice-good' : 'notice-critical'">
+            <svg class="icon"><use href="#i-info"/></svg>
+            <span x-text="integrationsModal.monTest?.detail"></span>
+          </div>
         </div>
       </div>
-      <div class="px-6 py-4 border-t border-border flex justify-end gap-2">
-        <button @click="integrationsModal.show = false" class="btn-secondary">Close</button>
-        <button @click="saveIntegrations(true)" :disabled="integrationsModal.busy" class="btn-primary disabled:opacity-50">
-          <i x-show="integrationsModal.busy" class="fa-solid fa-circle-notch fa-spin mr-1"></i>Save
+      <div class="modal-foot">
+        <div class="note">Passwords and keys are encrypted at rest. Blank keeps the stored value.</div>
+        <button @click="integrationsModal.show = false" class="btn btn-ghost">Close</button>
+        <button @click="saveIntegrations(true)" :disabled="integrationsModal.busy" class="btn btn-primary">
+          <svg class="icon spinner" x-show="integrationsModal.busy"><use href="#i-loader-circle"/></svg>Save
         </button>
       </div>
     </div>
   </div>
 
   <!-- ── Add / Edit Monitor Modal ──────────────────────────────────────────── -->
-  <div x-show="monitorModal.show" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div @click.stop class="bg-panel border border-border rounded-xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between px-6 py-4 border-b border-border">
-        <h3 class="text-lg font-bold text-white" x-text="monitorModal.editing ? 'Edit Monitor' : 'Add Monitor'"></h3>
-        <button @click="monitorModal.show = false" class="text-gray-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+  <div x-show="monitorModal.show" x-transition class="scrim">
+    <div @click.stop class="modal modal-md">
+      <div class="modal-head">
+        <div class="flex-1 min-w-0">
+          <div class="title" x-text="monitorModal.editing ? 'Edit monitor' : 'Add monitor'"></div>
+          <div class="sub">Register a device or a published service with the uptime monitor, and pick how it reports.</div>
+        </div>
+        <button @click="monitorModal.show = false" class="btn-icon" title="Close">
+          <svg class="icon"><use href="#i-x"/></svg>
         </button>
       </div>
-      <div class="p-6 space-y-4">
-        <!-- Source picker (add mode only) -->
-        <div x-show="!monitorModal.editing">
-          <label class="label">Source</label>
-          <select x-model="monitorModal.source" @change="onMonitorSourceChange()" class="input w-full">
-            <option value="manual">Manual URL</option>
-            <!-- Already-monitored items stay selectable (a source can have
-                 several monitors / URLs) but are dimmed + flagged. -->
-            <template x-for="c in monitorCandidates" :key="c.source_type + ':' + c.source_id">
-              <option :value="c.source_type + ':' + c.source_id"
-                      :style="c.monitored ? 'color:#6b7280' : ''"
-                      x-text="(c.source_type === 'device' ? '🖥 ' : '🌐 ') + c.name + (c.monitored ? ' · already monitored' : '')"></option>
-            </template>
-          </select>
-        </div>
+      <div class="modal-body space-y-5">
 
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="label">Name</label>
-            <input x-model="monitorModal.form.name" class="input w-full" placeholder="My service">
+        <div class="space-y-3">
+          <div class="eyebrow">Check</div>
+          <!-- Source picker (add mode only) -->
+          <div x-show="!monitorModal.editing">
+            <label class="field-label">Source</label>
+            <select x-model="monitorModal.source" @change="onMonitorSourceChange()" class="input">
+              <option value="manual">Manual URL</option>
+              <!-- Already-monitored items stay selectable (a source can have
+                   several monitors / URLs) but are dimmed + flagged. -->
+              <template x-for="c in monitorCandidates" :key="c.source_type + ':' + c.source_id">
+                <option :value="c.source_type + ':' + c.source_id"
+                        :style="c.monitored ? 'color: var(--text-dim)' : ''"
+                        x-text="(c.source_type === 'device' ? '🖥 ' : '🌐 ') + c.name + (c.monitored ? ' · already monitored' : '')"></option>
+              </template>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="field-label">Name</label>
+              <input x-model="monitorModal.form.name" class="input" placeholder="My service">
+            </div>
+            <div>
+              <label class="field-label">Check interval (seconds)</label>
+              <input x-model.number="monitorModal.form.interval" type="number" min="5" class="input">
+            </div>
           </div>
           <div>
-            <label class="label">Check interval (seconds)</label>
-            <input x-model.number="monitorModal.form.interval" type="number" min="5" class="input w-full">
+            <label class="field-label">Target URL</label>
+            <input x-model="monitorModal.form.target_url" class="input" placeholder="https://app.example.com">
           </div>
-        </div>
-        <div>
-          <label class="label">Target URL</label>
-          <input x-model="monitorModal.form.target_url" class="input w-full font-mono" placeholder="https://app.example.com">
-        </div>
-        <div class="flex items-center gap-6">
-          <label class="flex items-center gap-2 text-sm text-gray-300">
-            <input type="checkbox" x-model="monitorModal.form.ssl_check" class="accent-blue-500"> Check SSL expiry
+          <label class="set-row">
+            <span class="set-label">Check SSL expiry</span>
+            <input type="checkbox" x-model="monitorModal.form.ssl_check" class="toggle">
           </label>
-          <label class="flex items-center gap-2 text-sm text-gray-300">
-            <input type="checkbox" x-model="monitorModal.form.enabled" class="accent-blue-500"> Enabled
+          <label class="set-row">
+            <span class="set-label">Enabled</span>
+            <input type="checkbox" x-model="monitorModal.form.enabled" class="toggle">
           </label>
         </div>
 
         <!-- Notification channels -->
-        <div>
-          <label class="label">Notification channels</label>
-          <div x-show="!monitorOptions.notifications.length" class="text-xs text-gray-500">
-            None configured in the monitoring tool.
+        <div class="space-y-3">
+          <div class="eyebrow">Notification channels</div>
+          <div class="t-small t-dim" x-show="!monitorOptions.notifications.length">
+            None are configured in the monitoring tool.
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-x-5 gap-y-2">
             <template x-for="opt in monitorOptions.notifications" :key="opt.id">
-              <label class="flex items-center gap-1.5 text-sm px-2 py-1 rounded border cursor-pointer"
-                     :class="monitorModal.form.notifications.includes(opt.id) ? 'border-blue-500 bg-blue-500/10 text-blue-200' : 'border-border text-gray-400'">
-                <input type="checkbox" :value="opt.id" x-model="monitorModal.form.notifications" class="accent-blue-500">
-                <span x-text="opt.name || opt.id"></span>
-                <span class="text-[10px] text-gray-500" x-text="opt.type"></span>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" :value="opt.id" x-model="monitorModal.form.notifications" class="check">
+                <span class="t-control" x-text="opt.name || opt.id"></span>
+                <span class="badge" x-text="opt.type"></span>
               </label>
             </template>
           </div>
         </div>
 
         <!-- Status pages -->
-        <div>
-          <label class="label">Status pages</label>
-          <div x-show="!monitorOptions.status_pages.length" class="text-xs text-gray-500">
-            None configured in the monitoring tool.
+        <div class="space-y-3">
+          <div class="eyebrow">Status pages</div>
+          <div class="t-small t-dim" x-show="!monitorOptions.status_pages.length">
+            None are configured in the monitoring tool.
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-x-5 gap-y-2">
             <template x-for="p in monitorOptions.status_pages" :key="p.id">
-              <label class="flex items-center gap-1.5 text-sm px-2 py-1 rounded border cursor-pointer"
-                     :class="monitorModal.form.status_page_ids.includes(p.id) ? 'border-blue-500 bg-blue-500/10 text-blue-200' : 'border-border text-gray-400'">
-                <input type="checkbox" :value="p.id" x-model.number="monitorModal.form.status_page_ids" class="accent-blue-500">
-                <span x-text="p.name"></span>
+              <label class="flex items-center gap-2">
+                <input type="checkbox" :value="p.id" x-model.number="monitorModal.form.status_page_ids" class="check">
+                <span class="t-control" x-text="p.name"></span>
               </label>
             </template>
           </div>
         </div>
 
-        <div x-show="monitorModal.error" class="text-xs rounded px-3 py-2 border text-red-300 bg-red-500/10 border-red-600/40"
-             x-text="monitorModal.error"></div>
+        <div class="notice notice-critical" x-show="monitorModal.error">
+          <svg class="icon"><use href="#i-circle-x"/></svg>
+          <span x-text="monitorModal.error"></span>
+        </div>
       </div>
-      <div class="px-6 py-4 border-t border-border flex justify-end gap-2">
-        <button @click="monitorModal.show = false" class="btn-secondary">Cancel</button>
-        <button @click="saveMonitor()" :disabled="monitorModal.busy" class="btn-primary disabled:opacity-50">
-          <i x-show="monitorModal.busy" class="fa-solid fa-circle-notch fa-spin mr-1"></i>Save
+      <div class="modal-foot">
+        <div class="note">Changes are pushed to the monitoring tool on save.</div>
+        <button @click="monitorModal.show = false" class="btn btn-ghost">Cancel</button>
+        <button @click="saveMonitor()" :disabled="monitorModal.busy" class="btn btn-primary">
+          <svg class="icon spinner" x-show="monitorModal.busy"><use href="#i-loader-circle"/></svg>Save
         </button>
       </div>
     </div>
   </div>
 
   <!-- ── Confirm Modal ─────────────────────────────────────────────────────── -->
-  <div x-show="confirmModal.show" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-    <div @click.stop class="bg-panel border border-border rounded-xl w-80 shadow-2xl p-6">
-      <div class="text-white font-semibold mb-2">Confirm</div>
-      <div class="text-gray-400 text-sm mb-6" x-text="confirmModal.message"></div>
-      <div class="flex gap-3 justify-end">
-        <button @click="confirmModal.show = false" class="btn-secondary">Cancel</button>
-        <button @click="confirmModal.fn && confirmModal.fn(); confirmModal.show = false" class="btn-danger">Confirm</button>
+  <div x-show="confirmModal.show" x-transition class="scrim">
+    <div @click.stop class="modal modal-sm">
+      <div class="modal-head">
+        <div class="flex-1 min-w-0">
+          <div class="title">Confirm</div>
+          <div class="sub">Read this before it happens. It cannot be undone.</div>
+        </div>
+        <button @click="confirmModal.show = false" class="btn-icon" title="Close">
+          <svg class="icon"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="notice">
+          <svg class="icon"><use href="#i-triangle-alert"/></svg>
+          <span x-text="confirmModal.message"></span>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <div class="note">There is no undo.</div>
+        <button @click="confirmModal.show = false" class="btn btn-ghost">Cancel</button>
+        <button @click="confirmModal.fn && confirmModal.fn(); confirmModal.show = false" class="btn btn-danger">Confirm</button>
       </div>
     </div>
   </div>
 
   <!-- ── Change Password Modal ─────────────────────────────────────────────── -->
-  <div x-show="passwordModal.show" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <form @submit.prevent="submitPasswordChange()" @click.stop
-          class="bg-panel border border-border rounded-xl w-96 shadow-2xl p-6 space-y-4">
-      <div class="text-white font-semibold">Change password</div>
-      <div>
-        <label class="block text-xs text-gray-400 mb-1">Current password</label>
-        <input type="password" x-model="passwordModal.current" required autocomplete="current-password"
-               class="input">
+  <div x-show="passwordModal.show" x-transition class="scrim">
+    <form @submit.prevent="submitPasswordChange()" @click.stop class="modal modal-sm">
+      <div class="modal-head">
+        <div class="flex-1 min-w-0">
+          <div class="title">Change password</div>
+          <div class="sub">This is the password for the single account this app has.</div>
+        </div>
+        <button type="button" @click="passwordModal.show = false" class="btn-icon" title="Close">
+          <svg class="icon"><use href="#i-x"/></svg>
+        </button>
       </div>
-      <div>
-        <label class="block text-xs text-gray-400 mb-1">New password (min 8 chars)</label>
-        <input type="password" x-model="passwordModal.next" required minlength="8" autocomplete="new-password"
-               class="input">
+      <div class="modal-body space-y-3">
+        <div>
+          <label class="field-label">Current password</label>
+          <input type="password" x-model="passwordModal.current" required autocomplete="current-password"
+                 class="input">
+        </div>
+        <div>
+          <label class="field-label">New password</label>
+          <input type="password" x-model="passwordModal.next" required minlength="8" autocomplete="new-password"
+                 class="input">
+          <div class="field-hint">At least 8 characters.</div>
+        </div>
+        <div>
+          <label class="field-label">Confirm new password</label>
+          <input type="password" x-model="passwordModal.confirm" required minlength="8" autocomplete="new-password"
+                 class="input">
+        </div>
+        <div class="notice notice-critical" x-show="passwordModal.error">
+          <svg class="icon"><use href="#i-circle-x"/></svg>
+          <span x-text="passwordModal.error"></span>
+        </div>
       </div>
-      <div>
-        <label class="block text-xs text-gray-400 mb-1">Confirm new password</label>
-        <input type="password" x-model="passwordModal.confirm" required minlength="8" autocomplete="new-password"
-               class="input">
-      </div>
-      <div x-show="passwordModal.error" x-text="passwordModal.error"
-           class="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded px-3 py-2"></div>
-      <div class="flex gap-3 justify-end pt-2">
-        <button type="button" @click="passwordModal.show = false" class="btn-secondary">Cancel</button>
-        <button type="submit" :disabled="passwordModal.busy" class="btn-primary">Change password</button>
+      <div class="modal-foot">
+        <div class="note">You stay signed in on this browser.</div>
+        <button type="button" @click="passwordModal.show = false" class="btn btn-ghost">Cancel</button>
+        <button type="submit" :disabled="passwordModal.busy" class="btn btn-primary">Change password</button>
       </div>
     </form>
   </div>
 
   <!-- ── API Keys Modal ────────────────────────────────────────────────────── -->
-  <div x-show="apiKeysModal.show" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div @click.stop class="bg-panel border border-border rounded-xl w-full max-w-lg shadow-2xl">
-      <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-        <h2 class="font-semibold text-white"><i class="fa-solid fa-code mr-1.5"></i>API Keys</h2>
-        <button @click="apiKeysModal.show = false" class="text-gray-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+  <div x-show="apiKeysModal.show" x-transition class="scrim">
+    <div @click.stop class="modal modal-md">
+      <div class="modal-head">
+        <div class="flex-1 min-w-0">
+          <div class="title">API keys</div>
+          <div class="sub">Keys authenticate API requests instead of a login cookie, with the same access as your account.</div>
+        </div>
+        <button @click="apiKeysModal.show = false" class="btn-icon" title="Close">
+          <svg class="icon"><use href="#i-x"/></svg>
         </button>
       </div>
-      <div class="p-6 space-y-4">
-        <p class="text-xs text-gray-500">
-          Authenticate API requests with a key instead of a login cookie. Send it as
-          <code class="bg-black/40 px-1 rounded text-gray-300">Authorization: Bearer &lt;key&gt;</code>
-          or <code class="bg-black/40 px-1 rounded text-gray-300">X-API-Key: &lt;key&gt;</code>.
-          A key has the same access as your account.
+      <div class="modal-body space-y-4">
+        <p class="t-small t-muted">
+          Send a key as <code class="figure">Authorization: Bearer &lt;key&gt;</code>
+          or <code class="figure">X-API-Key: &lt;key&gt;</code>.
         </p>
 
         <!-- Freshly-created key - shown once -->
-        <div x-show="apiKeysModal.created"
-             class="border border-green-600/50 bg-green-500/10 rounded-lg p-3 space-y-2">
-          <div class="text-xs text-green-300 font-semibold">
-            <i class="fa-solid fa-circle-check mr-1"></i>Key created - copy it now, it won't be shown again.
-          </div>
-          <div class="flex items-center gap-2">
-            <code class="flex-1 text-xs text-gray-200 bg-black/40 rounded px-2 py-1.5 break-all font-mono"
-                  x-text="apiKeysModal.created"></code>
-            <button @click="copyApiKey()" class="btn-secondary text-xs whitespace-nowrap">
-              <i class="fa-solid fa-copy mr-1"></i><span x-text="apiKeysModal.copied ? 'Copied' : 'Copy'"></span>
-            </button>
+        <div class="notice" x-show="apiKeysModal.created">
+          <svg class="icon"><use href="#i-key"/></svg>
+          <div class="flex-1 min-w-0 space-y-2">
+            <div>The key is shown here once and is never shown again. Copy it now.</div>
+            <div class="flex items-center gap-2">
+              <code class="figure flex-1 min-w-0 break-all" x-text="apiKeysModal.created"></code>
+              <button @click="copyApiKey()" class="btn btn-outline btn-sm">
+                <svg class="icon"><use href="#i-copy"/></svg><span x-text="apiKeysModal.copied ? 'Copied' : 'Copy'"></span>
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- Create -->
-        <div class="flex gap-2">
-          <input x-model="apiKeysModal.name" placeholder="Key name (e.g. Grafana)"
-                 @keydown.enter="createApiKey()" class="input flex-1">
-          <button @click="createApiKey()" :disabled="apiKeysModal.busy" class="btn-primary whitespace-nowrap">
-            <i class="fa-solid fa-plus mr-1"></i>Create
-          </button>
+        <div>
+          <label class="field-label">New key</label>
+          <div class="flex gap-2">
+            <input x-model="apiKeysModal.name" placeholder="Key name, e.g. Grafana"
+                   @keydown.enter="createApiKey()" class="input flex-1">
+            <button @click="createApiKey()" :disabled="apiKeysModal.busy" class="btn btn-primary">
+              <svg class="icon"><use href="#i-plus"/></svg>Create
+            </button>
+          </div>
         </div>
 
         <!-- List -->
-        <div class="border border-border rounded-lg divide-y divide-border max-h-72 overflow-y-auto">
+        <div class="space-y-2">
+          <div class="eyebrow">Existing keys</div>
           <template x-if="!apiKeysModal.keys.length">
-            <div class="p-4 text-sm text-gray-500 text-center">No API keys yet.</div>
+            <div class="empty">
+              <svg class="icon-24"><use href="#i-key"/></svg>
+              <span>No API keys yet. Name one above to create it.</span>
+            </div>
           </template>
           <template x-for="k in apiKeysModal.keys" :key="k.id">
-            <div class="flex items-center gap-3 p-3">
+            <div class="row row-sep">
               <div class="flex-1 min-w-0">
-                <div class="text-sm text-gray-200 truncate" x-text="k.name"></div>
-                <div class="text-xs text-gray-500 font-mono" x-text="k.prefix + '…'"></div>
-                <div class="text-[11px] text-gray-600">
+                <div class="truncate" x-text="k.name"></div>
+                <div class="figure" x-text="k.prefix + '…'"></div>
+                <div class="t-tiny">
                   <span x-text="'Created ' + relTime(k.created_at)"></span>
                   <span x-text="k.last_used_at ? ' · last used ' + relTime(k.last_used_at) : ' · never used'"></span>
                 </div>
               </div>
-              <button @click="deleteApiKey(k)" title="Revoke"
-                      class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-card">
-                <i class="fa-solid fa-trash"></i>
+              <button @click="deleteApiKey(k)" title="Revoke this key. Anything using it stops working."
+                      class="btn-icon is-danger">
+                <svg class="icon"><use href="#i-trash-2"/></svg>
               </button>
             </div>
           </template>
         </div>
       </div>
-      <div class="px-6 py-4 border-t border-border flex justify-end">
-        <button @click="apiKeysModal.show = false" class="btn-secondary">Close</button>
+      <div class="modal-foot">
+        <div class="note">Revoking a key takes effect at once.</div>
+        <button @click="apiKeysModal.show = false" class="btn btn-ghost">Close</button>
       </div>
     </div>
   </div>
 
   <!-- ── Event Log Modal ───────────────────────────────────────────────────── -->
-  <div x-show="eventsModal.show" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <div @click.stop class="bg-panel border border-border rounded-xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:80vh">
-      <div class="px-6 py-4 border-b border-border flex items-center justify-between">
-        <h2 class="font-semibold text-white">
-          <i class="fa-solid fa-clock-rotate-left mr-1.5"></i><span x-text="eventsModal.title"></span>
-        </h2>
-        <button @click="eventsModal.show = false" class="text-gray-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
+  <div x-show="eventsModal.show" x-transition class="scrim">
+    <div @click.stop class="modal modal-lg">
+      <div class="modal-head">
+        <div class="flex-1 min-w-0">
+          <div class="title" x-text="eventsModal.title"></div>
+          <div class="sub">What happened and when, newest first. The log survives a device being deleted.</div>
+        </div>
+        <button @click="eventsModal.show = false" class="btn-icon" title="Close">
+          <svg class="icon"><use href="#i-x"/></svg>
         </button>
       </div>
-      <div class="p-4 overflow-y-auto">
-        <div x-show="!eventsModal.events.length" class="text-sm text-gray-500 text-center py-8">
-          No events recorded yet.
+      <div class="modal-body">
+        <div class="empty" x-show="!eventsModal.events.length">
+          <svg class="icon-24"><use href="#i-history"/></svg>
+          <span>No events recorded yet. Offline transitions, UPS state changes and shutdown actions land here.</span>
         </div>
-        <div class="divide-y divide-border">
+        <div>
           <template x-for="e in eventsModal.events" :key="e.id">
-            <div class="flex items-start gap-3 py-2.5">
-              <span class="mt-1 w-2 h-2 rounded-full shrink-0"
-                    :class="{'bg-blue-400': e.severity==='info','bg-yellow-400': e.severity==='warning','bg-red-500': e.severity==='critical'}"></span>
+            <div class="row row-sep items-start py-2">
+              <span class="dot mt-2"
+                    :class="{'dot-caution': e.severity==='warning','dot-critical': e.severity==='critical'}"></span>
               <div class="flex-1 min-w-0">
-                <div class="text-sm text-gray-200" x-text="e.title"></div>
-                <div x-show="e.detail" class="text-xs text-gray-500 break-words" x-text="e.detail"></div>
+                <div x-text="e.title"></div>
+                <div x-show="e.detail" class="t-small t-muted break-words" x-text="e.detail"></div>
               </div>
-              <div class="text-[11px] text-gray-500 whitespace-nowrap text-right shrink-0">
-                <div x-text="fmtDateTime(e.ts)"></div>
-                <div x-text="relTime(e.ts)"></div>
+              <div class="text-right shrink-0">
+                <div class="figure" x-text="fmtDateTime(e.ts)"></div>
+                <div class="figure" x-text="relTime(e.ts)"></div>
               </div>
             </div>
           </template>
         </div>
       </div>
-      <div class="px-6 py-3 border-t border-border flex justify-end">
-        <button @click="eventsModal.show = false" class="btn-secondary">Close</button>
+      <div class="modal-foot">
+        <div class="note">The newest 2000 events are kept.</div>
+        <button @click="eventsModal.show = false" class="btn btn-ghost">Close</button>
       </div>
     </div>
   </div>
@@ -3153,44 +3245,45 @@
   <div x-show="selectedPort && vlanList.length && isSwitch && tab === 'ports'" x-transition.opacity
        @click.self="selectedPort = null"
        @keydown.escape.window="selectedPort && tab === 'ports' && (selectedPort = null)"
-       class="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4">
-    <div class="bg-card border border-border rounded-lg p-5 w-full max-w-2xl shadow-2xl">
-      <div class="flex items-start justify-between mb-3">
-        <div>
-          <div class="text-xs text-gray-500 uppercase tracking-wide">Port <span x-text="selectedPort"></span></div>
-          <div class="text-base font-semibold text-white"
-               x-text="selectedPortInfo?.name || ('Port ' + selectedPort)"></div>
-          <div class="text-xs text-gray-500 mt-1">
-            PVID:
-            <span class="font-mono text-gray-300" x-text="pvidByPort[selectedPort] || '-'"></span>
+       class="fixed inset-0 z-40 flex items-center justify-center p-4">
+    <div class="popover w-full max-w-md">
+      <div class="flex items-start gap-2 p-2">
+        <div class="flex-1 min-w-0">
+          <div class="eyebrow">Port <span x-text="selectedPort"></span></div>
+          <div class="t-heading" x-text="selectedPortInfo?.name || ('Port ' + selectedPort)"></div>
+          <div class="t-small t-muted">
+            PVID
+            <span class="figure" x-text="pvidByPort[selectedPort] || '-'"></span>
             <span x-show="pvidByPort[selectedPort]"
-                  class="text-gray-600"
                   x-text="' (' + (vlanList.find(v => v.vid === pvidByPort[selectedPort])?.name || '') + ')'"></span>
           </div>
         </div>
-        <button @click="selectedPort = null"
-                class="text-gray-500 hover:text-gray-200 text-base" title="Close (Esc)">
-          <i class="fa-solid fa-xmark"></i>
+        <button @click="selectedPort = null" class="btn-icon" title="Close (Esc)">
+          <svg class="icon"><use href="#i-x"/></svg>
         </button>
       </div>
-      <div class="text-xs text-gray-500 mb-3">
-        Click a VLAN to cycle: <span class="text-gray-400">none</span> → <span class="text-blue-300">Tagged</span> → <span class="text-green-300">Untagged</span>.
-        Changes stage until you click <span class="text-yellow-300">Save</span>.
+      <div class="popover-sep"></div>
+      <div class="t-tiny px-2 pb-2">
+        Click a VLAN to cycle it: none, then tagged, then untagged.
+        Changes stage until you save them.
       </div>
-      <div class="flex flex-wrap gap-2 max-h-80 overflow-y-auto">
+      <div class="max-h-80 overflow-y-auto">
         <template x-for="v in vlanList" :key="v.vid">
           <button @click="cyclePortVlan(selectedPort, v.vid)"
                   :class="{
-                    'bg-blue-500/25 text-blue-200 border-blue-500/40':   portVlanMode(selectedPort, v.vid) === 'tagged',
-                    'bg-green-500/25 text-green-200 border-green-500/40': portVlanMode(selectedPort, v.vid) === 'untagged',
-                    'bg-bg text-gray-400 border-border/40 hover:bg-card-hover': portVlanMode(selectedPort, v.vid) === null,
-                    'ring-2 ring-yellow-400 ring-offset-1 ring-offset-card': isPendingCell(selectedPort, v.vid),
+                    'is-selected': portVlanMode(selectedPort, v.vid) !== null,
                   }"
-                  class="px-3 py-1.5 rounded text-xs border transition-all flex items-center gap-2">
-            <span class="font-mono font-bold" x-text="v.vid"></span>
-            <span class="text-gray-500" x-text="v.name"></span>
-            <span class="text-[10px] uppercase tracking-wider font-bold w-3 text-right"
-                  x-text="portVlanMode(selectedPort, v.vid) === 'tagged' ? 'T' : portVlanMode(selectedPort, v.vid) === 'untagged' ? 'U' : ''"></span>
+                  class="popover-item">
+            <span class="figure" x-text="v.vid"></span>
+            <span class="flex-1 min-w-0 truncate" x-text="v.name"></span>
+            <span class="badge" x-show="isPendingCell(selectedPort, v.vid)">Pending</span>
+            <span class="badge"
+                  :class="{
+                    'badge-accent': portVlanMode(selectedPort, v.vid) === 'tagged',
+                    'badge-good':   portVlanMode(selectedPort, v.vid) === 'untagged',
+                  }"
+                  x-show="portVlanMode(selectedPort, v.vid) !== null"
+                  x-text="portVlanMode(selectedPort, v.vid) === 'tagged' ? 'Tagged' : 'Untagged'"></span>
           </button>
         </template>
       </div>
@@ -3199,34 +3292,36 @@
 
   <!-- ── Pending VLAN-changes save bar ─────────────────────────────────────── -->
   <div x-show="pendingChangeCount > 0" x-transition
-       class="fixed bottom-6 right-6 z-40 bg-card border border-yellow-500/40 rounded-lg shadow-2xl px-4 py-3 flex items-center gap-3">
-    <i class="fa-solid fa-circle-exclamation text-yellow-400"></i>
-    <div class="text-sm text-gray-200">
-      <span class="font-bold text-yellow-300" x-text="pendingChangeCount"></span>
+       class="fixed bottom-6 right-6 z-40 flex items-center gap-3 p-3"
+       style="background: color-mix(in oklab, var(--chrome) 96%, transparent);
+              backdrop-filter: blur(6px);
+              border: var(--hairline) solid var(--line-popover);
+              border-radius: 10px;
+              box-shadow: var(--shadow-float);">
+    <svg class="icon t-caution"><use href="#i-triangle-alert"/></svg>
+    <div class="t-control">
+      <span class="figure" x-text="pendingChangeCount"></span>
       pending VLAN change<span x-show="pendingChangeCount !== 1">s</span>
     </div>
-    <button @click="discardVlanChanges()" :disabled="vlanSaving"
-            :class="vlanSaving ? 'opacity-40 cursor-not-allowed' : ''"
-            class="text-xs text-gray-400 hover:text-gray-200 px-2 py-1.5 rounded transition-colors">
+    <button @click="discardVlanChanges()" :disabled="vlanSaving" class="btn btn-ghost">
       Discard
     </button>
-    <button @click="saveVlanChanges()" :disabled="vlanSaving"
-            :class="vlanSaving ? 'opacity-70 cursor-not-allowed' : ''"
-            class="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded font-medium transition-colors">
-      <i :class="vlanSaving ? 'fa-circle-notch fa-spin' : 'fa-floppy-disk'" class="fa-solid mr-1"></i>
+    <button @click="saveVlanChanges()" :disabled="vlanSaving" class="btn btn-primary">
+      <svg class="icon spinner" x-show="vlanSaving"><use href="#i-loader-circle"/></svg>
+      <svg class="icon" x-show="!vlanSaving"><use href="#i-save"/></svg>
       <span x-text="vlanSaving ? 'Saving…' : 'Save'"></span>
     </button>
   </div>
 
   <!-- ── Toast ─────────────────────────────────────────────────────────────── -->
   <div x-show="toast" x-transition
-       :class="[pendingChangeCount > 0 ? 'bottom-24' : 'bottom-6',
-                toast?.type === 'error'   ? 'bg-red-600 text-white' :
-                toast?.type === 'warning' ? 'bg-amber-600 text-white' :
-                                            'bg-green-600 text-white']"
-       class="fixed right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium
-              max-w-md whitespace-pre-line"
-       x-text="toast?.msg">
+       class="toast"
+       :class="toast?.type === 'error' ? 'is-error' : toast?.type === 'warning' ? '' : 'is-good'"
+       :style="pendingChangeCount > 0 ? 'bottom: 92px' : ''">
+    <svg class="icon" x-show="toast?.type === 'error'"><use href="#i-circle-x"/></svg>
+    <svg class="icon t-caution" x-show="toast?.type === 'warning'"><use href="#i-triangle-alert"/></svg>
+    <svg class="icon" x-show="toast?.type !== 'error' && toast?.type !== 'warning'"><use href="#i-circle-check"/></svg>
+    <span class="whitespace-pre-line" x-text="toast?.msg"></span>
   </div>
 
   <!-- Component classes live in /static/app.css, drawn against the tokens.
