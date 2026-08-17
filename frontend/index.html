@@ -635,82 +635,87 @@
 
       <!-- Monitoring (push devices/services into an external uptime monitor) -->
       <template x-if="!selectedId && page === 'monitoring'">
-        <div class="p-6">
-          <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-            <h1 class="text-2xl font-bold text-white">Monitoring</h1>
-            <div class="flex gap-2">
-              <button @click="openIntegrationsModal()" class="btn-secondary">
-                <i class="fa-solid fa-gear mr-1"></i>Integrations
+        <div class="content-inner">
+          <div class="page-head flex items-start justify-between flex-wrap gap-3">
+            <div class="min-w-0">
+              <h1 class="t-page">Monitoring</h1>
+              <p class="sub t-muted">
+                Push a device or published service into your uptime monitor
+                (<span class="t-strong" x-text="monitorProviderLabel"></span>),
+                assign notification channels and add it to status pages. All of it is reversible from here.
+              </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button @click="openIntegrationsModal()" class="btn">
+                <svg class="icon"><use href="#i-settings"/></svg>Integrations
               </button>
               <button @click="openMonitorModal()" :disabled="!monitoringReady"
                       :title="monitoringReady ? '' : 'Configure the monitoring integration first'"
-                      class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
-                <i class="fa-solid fa-plus mr-1"></i>Add Monitor
+                      class="btn btn-primary">
+                <svg class="icon"><use href="#i-plus"/></svg>Add monitor
               </button>
             </div>
           </div>
-          <p class="text-gray-400 text-sm mb-6">
-            Push a device or published service into your uptime monitor
-            (<span class="font-mono text-gray-300" x-text="monitorProviderLabel"></span>),
-            assign notification channels and add it to status pages - all reversible from here.
-          </p>
 
           <!-- Integration-not-configured hint -->
-          <div x-show="!monitoringReady"
-               class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-4 mb-6 text-sm text-amber-200">
-            <i class="fa-solid fa-triangle-exclamation mr-1.5"></i>
-            The monitoring integration isn't configured yet.
-            Open <button @click="openIntegrationsModal()" class="underline hover:text-white">Integrations</button>,
-            pick a provider (Kuvasz) and enter its URL + API key.
+          <div x-show="!monitoringReady" class="notice mb-5">
+            <svg class="icon"><use href="#i-triangle-alert"/></svg>
+            <div>
+              The monitoring integration is not configured yet.
+              Open <button @click="openIntegrationsModal()" class="t-accent underline">Integrations</button>,
+              pick a provider (Kuvasz) and enter its URL and API key.
+            </div>
           </div>
 
           <!-- Monitor list -->
-          <div x-show="monitoringReady" class="border border-border rounded-lg divide-y divide-border overflow-hidden">
-            <template x-for="m in monitors" :key="m.id">
-              <div class="flex items-center gap-3 px-4 py-3 bg-card/40">
-                <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="monitorStateDot(m)"
-                      :title="m.live || 'state unknown'"></span>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <span class="text-white font-medium truncate" x-text="m.name"></span>
-                    <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border shrink-0"
-                          :class="{ device: 'bg-blue-500/15 text-blue-300 border-blue-600/40',
-                                    service: 'bg-purple-500/15 text-purple-300 border-purple-600/40',
-                                    manual: 'bg-gray-600/20 text-gray-400 border-gray-600/40' }[m.source_type]"
-                          x-text="m.source_type"></span>
-                    <span x-show="m.status === 'error'" class="text-[10px] text-red-300" :title="m.detail">
-                      <i class="fa-solid fa-triangle-exclamation"></i>
-                    </span>
+          <div x-show="monitoringReady" class="panel">
+            <div class="panel-head">
+              <span class="title">Monitors</span>
+              <span class="count" x-text="monitors.length"></span>
+            </div>
+            <div class="panel-body flush">
+              <template x-for="m in monitors" :key="m.id">
+                <div class="row py-2">
+                  <span class="dot" :class="monitorStateDot(m)"
+                        :title="m.live || 'state unknown'"></span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="t-strong truncate" x-text="m.name"></span>
+                      <span class="badge shrink-0" x-text="m.source_type"></span>
+                      <span x-show="m.live" class="badge shrink-0"
+                            :class="{ 'badge-good': (m.live || '').toUpperCase() === 'UP',
+                                      'badge-critical': (m.live || '').toUpperCase() === 'DOWN' }"
+                            x-text="m.live"></span>
+                      <span x-show="m.status === 'error'" class="badge badge-critical shrink-0" :title="m.detail">
+                        <svg class="icon"><use href="#i-triangle-alert"/></svg>Error
+                      </span>
+                    </div>
+                    <div class="t-small t-dim figure truncate" x-text="m.target_url"></div>
                   </div>
-                  <div class="text-xs text-gray-500 truncate font-mono" x-text="m.target_url"></div>
+                  <div class="hidden sm:flex items-center gap-2 shrink-0">
+                    <span class="badge" :title="(m.notifications || []).join(', ') || 'no notifications'">
+                      <svg class="icon"><use href="#i-bell"/></svg><span class="figure" x-text="(m.notifications || []).length"></span>
+                    </span>
+                    <span class="badge" :title="(m.status_page_ids || []).length + ' status page(s)'">
+                      <svg class="icon"><use href="#i-list"/></svg><span class="figure" x-text="(m.status_page_ids || []).length"></span>
+                    </span>
+                    <span class="badge" :class="m.enabled ? 'badge-good' : ''"
+                          x-text="m.enabled ? 'enabled' : 'paused'"></span>
+                  </div>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button @click="openMonitorModal(m)" title="Edit monitor" class="btn-icon">
+                      <svg class="icon"><use href="#i-pencil"/></svg>
+                    </button>
+                    <button @click="deleteMonitor(m)" title="Delete monitor" class="btn-icon is-danger">
+                      <svg class="icon"><use href="#i-trash-2"/></svg>
+                    </button>
+                  </div>
                 </div>
-                <div class="hidden sm:flex items-center gap-3 text-xs text-gray-400 shrink-0">
-                  <span :title="(m.notifications || []).join(', ') || 'no notifications'">
-                    <i class="fa-solid fa-bell mr-1" :class="(m.notifications || []).length ? 'text-green-400' : 'text-gray-600'"></i>
-                    <span x-text="(m.notifications || []).length"></span>
-                  </span>
-                  <span :title="(m.status_page_ids || []).length + ' status page(s)'">
-                    <i class="fa-solid fa-rectangle-list mr-1" :class="(m.status_page_ids || []).length ? 'text-green-400' : 'text-gray-600'"></i>
-                    <span x-text="(m.status_page_ids || []).length"></span>
-                  </span>
-                  <span class="px-1.5 py-0.5 rounded"
-                        :class="m.enabled ? 'bg-green-500/15 text-green-300' : 'bg-gray-600/20 text-gray-400'"
-                        x-text="m.enabled ? 'enabled' : 'paused'"></span>
-                </div>
-                <div class="flex items-center gap-1 shrink-0">
-                  <button @click="openMonitorModal(m)" title="Edit"
-                          class="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-panel">
-                    <i class="fa-solid fa-pen"></i>
-                  </button>
-                  <button @click="deleteMonitor(m)" title="Delete"
-                          class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-panel">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
-                </div>
+              </template>
+              <div x-show="!monitors.length" class="empty">
+                <svg class="icon icon-24"><use href="#i-activity"/></svg>
+                <div>No monitors yet. Add a monitor to push a device or a published service into your uptime monitor.</div>
               </div>
-            </template>
-            <div x-show="!monitors.length" class="px-4 py-8 text-sm text-gray-500 text-center">
-              No monitors yet. Click <span class="text-gray-300">Add Monitor</span> to create one.
             </div>
           </div>
         </div>
@@ -719,37 +724,41 @@
       <!-- Device detail -->
       <template x-if="selectedId">
         <div>
-          <!-- Device header -->
-          <div class="bg-panel border-b border-border px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <span :class="statusDot(selectedDevice)" class="w-3 h-3 rounded-full"></span>
-              <div>
-                <div class="font-bold text-white text-lg" x-text="selectedDevice?.name"></div>
-                <div class="text-sm text-gray-400" x-text="selectedDevice?.hostname + ' · ' + (selectedDevice?.adapter_type || '').toUpperCase()"></div>
+          <!-- Device header (detail hero) -->
+          <div class="surface-dock hairline-b px-6 py-4 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <span :class="statusDot(selectedDevice)" class="dot"></span>
+              <div class="min-w-0">
+                <div class="t-page truncate" x-text="selectedDevice?.name"></div>
+                <div class="flex items-baseline gap-2 min-w-0">
+                  <span class="t-small t-muted truncate" x-text="selectedDevice?.hostname + ' · ' + (selectedDevice?.adapter_type || '').toUpperCase()"></span>
+                  <span class="t-tiny figure shrink-0" x-text="detail?.status_updated ? 'Updated ' + relTime(detail.status_updated) : ''"></span>
+                </div>
               </div>
             </div>
-            <div class="flex items-center gap-2">
-              <span class="text-xs text-gray-500" x-text="detail?.status_updated ? 'Updated ' + relTime(detail.status_updated) : ''"></span>
-              <button @click="refresh()" :disabled="loading"
-                      class="text-sm bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors disabled:opacity-50">
-                <i class="fa-solid fa-arrows-rotate" :class="loading && 'fa-spin'"></i> Refresh
+            <div class="flex items-center gap-1 shrink-0">
+              <button @click="refresh()" :disabled="loading" title="Refresh now" class="btn-icon">
+                <svg class="icon" :class="loading && 'spinner'"><use href="#i-refresh-cw"/></svg>
               </button>
-              <button @click="openEditModal(selectedDevice)"
-                      class="text-sm bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded transition-colors">
-                <i class="fa-solid fa-pen"></i>
+              <button @click="openEditModal(selectedDevice)" title="Edit device" class="btn-icon">
+                <svg class="icon"><use href="#i-pencil"/></svg>
+              </button>
+              <button @click="deleteDevice(selectedDevice)" title="Delete device" class="btn-icon is-danger">
+                <svg class="icon"><use href="#i-trash-2"/></svg>
               </button>
             </div>
           </div>
 
           <!-- Tabs -->
-          <div class="bg-panel border-b border-border px-6 flex gap-0 text-sm">
-            <template x-for="t in availableTabs" :key="t.id">
-              <button @click="tab = t.id"
-                      :class="tab === t.id ? 'tab-active' : 'text-gray-400 hover:text-gray-200'"
-                      class="px-4 py-3 transition-colors mr-1">
-                <i :class="t.icon + ' mr-1.5'"></i><span x-text="t.label"></span>
-              </button>
-            </template>
+          <div class="surface-dock hairline-b px-6 py-2">
+            <div class="segmented">
+              <template x-for="t in availableTabs" :key="t.id">
+                <button @click="tab = t.id"
+                        :class="tab === t.id ? 'is-selected' : ''">
+                  <svg class="icon"><use :href="'#' + t.icon"/></svg><span x-text="t.label"></span>
+                </button>
+              </template>
+            </div>
           </div>
 
           <!-- Tab content -->
