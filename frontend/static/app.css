@@ -35,6 +35,13 @@
 .t-caution  { color: var(--caution); }
 .t-critical { color: var(--critical); }
 
+/* A table cell sets its own ink at (0,1,1), which beats a bare rank class.
+   Restate the ranks at cell specificity so `<td class="t-dim">` works. */
+.tbl td.t-strong { color: var(--text-strong); } .tbl td.t-muted { color: var(--text-muted); }
+.tbl td.t-dim    { color: var(--text-dim); }    .tbl td.t-accent { color: var(--accent); }
+.tbl td.t-good   { color: var(--good); }        .tbl td.t-caution { color: var(--caution); }
+.tbl td.t-critical { color: var(--critical); }
+
 /* Eyebrow: the only place letter-spacing and capitals are allowed. */
 .eyebrow {
   font-size: 10px; font-weight: 400; letter-spacing: 2px;

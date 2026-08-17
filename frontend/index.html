@@ -170,8 +170,6 @@
       <span class="topbar-name">HomeLab Manger</span>
 
       <div class="flex items-center gap-3 ml-auto">
-        <span class="t-tiny figure" x-text="'v' + (appInfo.version || '?')"></span>
-
         <a :href="appInfo.github_url || '#'" target="_blank" rel="noopener"
            class="btn-icon" title="GitHub">
           <svg class="icon"><use href="#i-github"/></svg>
@@ -268,7 +266,7 @@
           <div class="flex items-center gap-2">
             <div class="flex-1 min-w-0">
               <div class="t-tiny">Signed in as</div>
-              <div class="t-small t-strong truncate" x-text="username || '-'"></div>
+              <div class="t-small t-strong truncate" x-text="username || '–'"></div>
             </div>
             <button @click="openApiKeysModal()" title="API keys" class="btn-icon">
               <svg class="icon"><use href="#i-code"/></svg>
@@ -426,7 +424,7 @@
                         }"></span>
                   <span class="t-control t-strong w-36 truncate shrink-0" x-text="s.name" :title="s.name"></span>
                   <a :href="s.url" target="_blank" rel="noopener"
-                     class="figure t-small truncate min-w-0 flex-1"
+                     class="figure t-small t-accent truncate min-w-0 flex-1"
                      x-text="s.fqdn" :title="s.url"></a>
                   <!-- host is the group header; only the port matters per row -->
                   <span class="figure t-tiny shrink-0 hidden md:inline"
@@ -457,11 +455,11 @@
 
                   <!-- actions -->
                   <div class="flex items-center shrink-0">
-                    <button x-show="s.state === 'error'" @click="retryService(s)" title="Retry the failed steps"
+                    <button x-show="s.state === 'error'" @click="retryService(s)" title="Retry the failed steps."
                             class="btn-icon">
                       <svg class="icon"><use href="#i-rotate-cw"/></svg>
                     </button>
-                    <button @click="openServiceModal(s)" title="Edit this service"
+                    <button @click="openServiceModal(s)" title="Edit this service."
                             class="btn-icon">
                       <svg class="icon"><use href="#i-pencil"/></svg>
                     </button>
@@ -497,7 +495,7 @@
               <span class="title">In Nginx Proxy Manager, not managed here</span>
               <span class="count" x-text="unmanagedNpmHosts.length"></span>
               <div class="actions">
-                <button @click="loadNpmHosts()" title="Refresh from Nginx Proxy Manager" class="btn-icon">
+                <button @click="loadNpmHosts()" title="Refresh from Nginx Proxy Manager." class="btn-icon">
                   <svg class="icon"><use href="#i-refresh-cw"/></svg>
                 </button>
               </div>
@@ -541,14 +539,14 @@
               <div class="actions">
                 <template x-if="dns.open && dns.domains.length > 1">
                   <div class="w-44">
-                    <select x-model="dns.domain" @change="loadDnsRecords()" class="input figure">
+                    <select x-model="dns.domain" @change="loadDnsRecords()" class="input">
                       <template x-for="d in dns.domains" :key="d">
                         <option :value="d" x-text="d"></option>
                       </template>
                     </select>
                   </div>
                 </template>
-                <button x-show="dns.open" @click="loadDnsRecords()" title="Refresh the record list" class="btn-icon">
+                <button x-show="dns.open" @click="loadDnsRecords()" title="Refresh the record list." class="btn-icon">
                   <svg class="icon" :class="dns.busy && 'spinner'"><use href="#i-refresh-cw"/></svg>
                 </button>
               </div>
@@ -578,7 +576,7 @@
                     <input x-model="dns.form.address" class="input"
                            :placeholder="dns.form.type === 'A' ? '192.168.1.10 or public IP' : 'example.com'">
                   </div>
-                  <button @click="addDnsRecord()" :disabled="dns.busy" class="btn btn-primary">
+                  <button @click="addDnsRecord()" :disabled="dns.busy" class="btn">
                     <svg class="icon"><use href="#i-plus"/></svg>Add
                   </button>
                 </div>
@@ -810,15 +808,15 @@
                          keep the last good reading but flip the banner to the
                          critical notice with a "last status" note. -->
                     <div class="notice mb-4"
-                         :class="detail.status_error ? 'notice-critical' : upsStateClass(detail.status.state)">
-                      <svg class="icon icon-20"><use :href="detail.status_error ? '#i-unplug' : (detail.status.state === 'online' ? '#i-plug-zap' : '#i-zap')"/></svg>
+                         :class="detail.status_error ? 'notice-critical' : upsStateClass(detail.status?.state)">
+                      <svg class="icon icon-20"><use :href="detail.status_error ? '#i-unplug' : (detail.status?.state === 'online' ? '#i-plug-zap' : '#i-zap')"/></svg>
                       <div class="min-w-0">
-                        <div class="t-heading" x-text="detail.status_error ? 'Offline' : detail.status.state_label"></div>
+                        <div class="t-heading" x-text="detail.status_error ? 'Offline' : detail.status?.state_label"></div>
                         <div class="t-tiny" x-show="detail.status_error">
-                          Last status: <span x-text="detail.status.state_label"></span><span x-show="detail.status_updated" x-text="' · ' + relTime(detail.status_updated)"></span>
+                          Last status: <span x-text="detail.status?.state_label"></span><span x-show="detail.status_updated" x-text="' · ' + relTime(detail.status_updated)"></span>
                         </div>
                         <div class="t-tiny"
-                             x-text="(detail.status.mfr || '') + ' ' + (detail.status.model || '') + (detail.status.serial ? ' · S/N ' + detail.status.serial : '')"></div>
+                             x-text="(detail.status?.mfr || '') + ' ' + (detail.status?.model || '') + (detail.status?.serial ? ' · S/N ' + detail.status?.serial : '')"></div>
                         <div class="t-tiny t-critical truncate" x-show="detail.status_error"
                              x-text="detail.status_error" :title="detail.status_error"></div>
                       </div>
@@ -827,39 +825,39 @@
                     <div class="tile-grid mb-3" :class="detail.status_error ? 'opacity-50' : ''">
                       <div class="tile">
                         <div class="eyebrow">Charge</div>
-                        <div class="tile-figure" x-text="fmtPct(detail.status.charge_pct)"></div>
-                        <div class="rail mt-2" x-show="detail.status.charge_pct != null">
+                        <div class="tile-figure" x-text="fmtPct(detail.status?.charge_pct)"></div>
+                        <div class="rail mt-2" x-show="detail.status?.charge_pct != null">
                           <div class="fill"
-                               :class="detail.status.state === 'low_battery' ? 'is-critical' : (detail.status.state === 'on_battery' ? 'is-caution' : '')"
-                               :style="'width: ' + Math.max(0, Math.min(100, detail.status.charge_pct || 0)) + '%'"></div>
+                               :class="detail.status?.state === 'low_battery' ? 'is-critical' : (detail.status?.state === 'on_battery' ? 'is-caution' : '')"
+                               :style="'width: ' + Math.max(0, Math.min(100, detail.status?.charge_pct || 0)) + '%'"></div>
                         </div>
                       </div>
                       <div class="tile">
                         <div class="eyebrow">Runtime remaining</div>
-                        <div class="tile-figure" x-text="detail.status.runtime_text || '-'"></div>
+                        <div class="tile-figure" x-text="detail.status?.runtime_text || '–'"></div>
                         <div class="tile-sub">At the current load.</div>
                       </div>
                       <div class="tile">
                         <div class="eyebrow">Load</div>
-                        <div class="tile-figure" x-text="fmtPct(detail.status.load_pct)"></div>
+                        <div class="tile-figure" x-text="fmtPct(detail.status?.load_pct)"></div>
                         <div class="tile-sub">Of the rated output.</div>
                       </div>
                       <div class="tile">
                         <div class="eyebrow">Power draw</div>
                         <div class="tile-figure"
-                             x-text="detail.status.watts != null ? detail.status.watts + ' W' : '-'"></div>
+                             x-text="detail.status?.watts != null ? detail.status?.watts + ' W' : '–'"></div>
                         <div class="tile-sub">Drawn by the protected kit.</div>
                       </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                      <div class="chip" x-show="detail.status.input_voltage != null">
-                        <span class="chip-label">Input</span><span class="chip-value" x-text="detail.status.input_voltage + ' V'"></span>
+                      <div class="chip" x-show="detail.status?.input_voltage != null">
+                        <span class="chip-label">Input</span><span class="chip-value" x-text="detail.status?.input_voltage + ' V'"></span>
                       </div>
-                      <div class="chip" x-show="detail.status.nominal_voltage != null">
-                        <span class="chip-label">Nominal</span><span class="chip-value" x-text="detail.status.nominal_voltage + ' V'"></span>
+                      <div class="chip" x-show="detail.status?.nominal_voltage != null">
+                        <span class="chip-label">Nominal</span><span class="chip-value" x-text="detail.status?.nominal_voltage + ' V'"></span>
                       </div>
-                      <div class="chip" x-show="detail.status.usb">
-                        <span class="chip-label">USB</span><span class="chip-value" x-text="detail.status.usb"></span>
+                      <div class="chip" x-show="detail.status?.usb">
+                        <span class="chip-label">USB</span><span class="chip-value" x-text="detail.status?.usb"></span>
                       </div>
                     </div>
                   </div>
@@ -953,11 +951,11 @@
                 <!-- Current UPS state context -->
                 <template x-if="detail.status">
                   <div class="notice mb-4"
-                       :class="detail.status_error ? 'notice-critical' : upsStateClass(detail.status.state)">
+                       :class="detail.status_error ? 'notice-critical' : upsStateClass(detail.status?.state)">
                     <svg class="icon"><use href="#i-zap"/></svg>
-                    <span class="t-control" x-text="detail.status_error ? 'Offline' : detail.status.state_label"></span>
-                    <span class="figure t-small" x-show="!detail.status_error && detail.status.charge_pct != null"
-                          x-text="'· ' + fmtPct(detail.status.charge_pct) + ' · ' + (detail.status.runtime_text || '')"></span>
+                    <span class="t-control" x-text="detail.status_error ? 'Offline' : detail.status?.state_label"></span>
+                    <span class="figure t-small" x-show="!detail.status_error && detail.status?.charge_pct != null"
+                          x-text="'· ' + fmtPct(detail.status?.charge_pct) + ' · ' + (detail.status?.runtime_text || '')"></span>
                   </div>
                 </template>
 
@@ -1257,7 +1255,7 @@
                                 <span class="t-dim">–</span>
                               </template>
                             </td>
-                            <td class="num figure" x-text="p.speedMbps ? p.speedMbps + 'M' : '-'"></td>
+                            <td class="num figure" x-text="p.speedMbps ? p.speedMbps + 'M' : '–'"></td>
                             <td class="num figure" x-text="fmtBytes(p.inOctets)"></td>
                             <td class="num figure" x-text="fmtBytes(p.outOctets)"></td>
                             <td>
@@ -1266,7 +1264,7 @@
                                     x-text="poeStatus(p.index)"></span>
                             </td>
                             <td class="num figure"
-                                x-text="poeWatts(p.index) !== null ? poeWatts(p.index) + 'W' : '-'"></td>
+                                x-text="poeWatts(p.index) !== null ? poeWatts(p.index) + 'W' : '–'"></td>
                             <td @click.stop>
                               <div class="flex items-center justify-end gap-1">
                                 <button @click.stop="portAction(p.index, {type:'port_admin', enable: p.adminStatus !== 1})"
@@ -1341,8 +1339,8 @@
                                       x-text="c.port_id"></button>
                             </td>
                             <td class="figure" x-text="c.mac"></td>
-                            <td x-text="c.vendor || '-'"></td>
-                            <td class="figure" x-text="c.ip || '-'"></td>
+                            <td x-text="c.vendor || '–'"></td>
+                            <td class="figure" x-text="c.ip || '–'"></td>
                           </tr>
                         </template>
                         <tr x-show="filteredConnected.length === 0">
@@ -1374,26 +1372,26 @@
                     <div class="tile-grid mb-3">
                       <div class="tile">
                         <div class="eyebrow">Total budget</div>
-                        <div class="tile-figure" x-text="detail.poe.totalPowerWatts != null ? detail.poe.totalPowerWatts + ' W' : '-'"></div>
+                        <div class="tile-figure" x-text="detail.poe?.totalPowerWatts != null ? detail.poe?.totalPowerWatts + ' W' : '–'"></div>
                         <div class="tile-sub">Chassis power budget.</div>
                       </div>
                       <div class="tile">
                         <div class="eyebrow">Consumption</div>
-                        <div class="tile-figure" x-text="detail.poe.consumptionWatts != null ? detail.poe.consumptionWatts + ' W' : '-'"></div>
-                        <template x-if="detail.poe.totalPowerWatts && detail.poe.consumptionWatts != null">
+                        <div class="tile-figure" x-text="detail.poe?.consumptionWatts != null ? detail.poe?.consumptionWatts + ' W' : '–'"></div>
+                        <template x-if="detail.poe?.totalPowerWatts && detail.poe?.consumptionWatts != null">
                           <div class="mt-2">
                             <div class="rail">
                               <div class="fill"
-                                   :class="detail.poe.consumptionWatts / detail.poe.totalPowerWatts >= 0.9 ? 'is-critical' : (detail.poe.consumptionWatts / detail.poe.totalPowerWatts >= 0.75 ? 'is-caution' : '')"
-                                   :style="`width: ${Math.min(100, Math.round(detail.poe.consumptionWatts / detail.poe.totalPowerWatts * 100))}%`"></div>
+                                   :class="detail.poe?.consumptionWatts / detail.poe?.totalPowerWatts >= 0.9 ? 'is-critical' : (detail.poe?.consumptionWatts / detail.poe?.totalPowerWatts >= 0.75 ? 'is-caution' : '')"
+                                   :style="`width: ${Math.min(100, Math.round(detail.poe?.consumptionWatts / detail.poe?.totalPowerWatts * 100))}%`"></div>
                             </div>
-                            <div class="tile-sub"><span class="figure" x-text="Math.min(100, Math.round(detail.poe.consumptionWatts / detail.poe.totalPowerWatts * 100))"></span>% of the budget in use.</div>
+                            <div class="tile-sub"><span class="figure" x-text="Math.min(100, Math.round(detail.poe?.consumptionWatts / detail.poe?.totalPowerWatts * 100))"></span>% of the budget in use.</div>
                           </div>
                         </template>
                       </div>
                       <div class="tile">
                         <div class="eyebrow">Active ports</div>
-                        <div class="tile-figure" x-text="detail.poe.ports.filter(p => p.detectionStatus === 'delivering').length"></div>
+                        <div class="tile-figure" x-text="detail.poe?.ports?.filter(p => p.detectionStatus === 'delivering').length"></div>
                         <div class="tile-sub">Ports delivering power.</div>
                       </div>
                     </div>
@@ -1402,7 +1400,7 @@
                     <div class="panel">
                       <div class="panel-head">
                         <span class="title">PoE ports</span>
-                        <span class="count" x-text="detail.poe.ports.length"></span>
+                        <span class="count" x-text="detail.poe?.ports?.length"></span>
                       </div>
                       <div class="panel-body flush tbl-wrap">
                         <table class="tbl">
@@ -1417,7 +1415,7 @@
                             </tr>
                           </thead>
                           <tbody>
-                            <template x-for="p in detail.poe.ports" :key="p.key">
+                            <template x-for="p in detail.poe?.ports" :key="p.key">
                               <tr>
                                 <td><span class="figure" x-text="p.portIndex"></span></td>
                                 <td>
@@ -1429,10 +1427,10 @@
                                         :class="({delivering: 'badge-good', searching: 'badge-caution', fault: 'badge-critical', otherFault: 'badge-critical'})[p.detectionStatus] || ''"
                                         x-text="p.detectionStatus"></span>
                                 </td>
-                                <td x-text="p.powerClass != null ? 'Class ' + p.powerClass : '-'"></td>
-                                <td class="num figure" x-text="p.powerWatts != null ? p.powerWatts : '-'"></td>
+                                <td x-text="p.powerClass != null ? 'Class ' + p.powerClass : '–'"></td>
+                                <td class="num figure" x-text="p.powerWatts != null ? p.powerWatts : '–'"></td>
                                 <td class="num figure"
-                                    x-text="p.maxPowerMilliwatts != null ? (p.maxPowerMilliwatts/1000).toFixed(1) : '-'"></td>
+                                    x-text="p.maxPowerMilliwatts != null ? (p.maxPowerMilliwatts/1000).toFixed(1) : '–'"></td>
                               </tr>
                             </template>
                           </tbody>
@@ -1634,11 +1632,11 @@
                             <template x-for="(m, i) in detail.hardware?.memory ?? []" :key="i">
                               <tr>
                                 <td class="figure" x-text="m.id || (i+1)"></td>
-                                <td x-text="m.location || m.bank || '-'"></td>
+                                <td x-text="m.location || m.bank || '–'"></td>
                                 <td class="num" x-text="memSize(m)"></td>
-                                <td class="num" x-text="(m.speedMHz || m.speed || m.speedMhz || '-') + (m.speedMHz || m.speed || m.speedMhz ? ' MHz' : '')"></td>
-                                <td class="t-muted" x-text="m.type || m.memoryDeviceType || '-'"></td>
-                                <td class="figure" x-text="m.serial || '-'"></td>
+                                <td class="num" x-text="(m.speedMHz || m.speed || m.speedMhz || '–') + (m.speedMHz || m.speed || m.speedMhz ? ' MHz' : '')"></td>
+                                <td class="t-muted" x-text="m.type || m.memoryDeviceType || '–'"></td>
+                                <td class="figure" x-text="m.serial || '–'"></td>
                               </tr>
                             </template>
                             <tr x-show="(detail.hardware?.memory ?? []).length === 0">
@@ -1680,9 +1678,9 @@
                               <template x-for="(p, i) in detail.hardware?.pcie ?? []" :key="i">
                                 <tr>
                                   <td class="figure" x-text="p.id"></td>
-                                  <td class="t-strong" x-text="p.model || '-'"></td>
-                                  <td class="t-muted" x-text="p.vendor || p.manufacturer || '-'"></td>
-                                  <td class="t-muted" x-text="p.class || p.pciClass || '-'"></td>
+                                  <td class="t-strong" x-text="p.model || '–'"></td>
+                                  <td class="t-muted" x-text="p.vendor || p.manufacturer || '–'"></td>
+                                  <td class="t-muted" x-text="p.class || p.pciClass || '–'"></td>
                                 </tr>
                               </template>
                               <tr x-show="(detail.hardware?.pcie ?? []).length === 0">
@@ -1763,17 +1761,17 @@
                           <template x-for="(d, i) in detail.storage?.disks ?? []" :key="i">
                             <tr>
                               <td class="figure" x-text="d.id || (i+1)"></td>
-                              <td class="t-strong" x-text="d.model || d.name || '-'"></td>
-                              <td class="t-muted" x-text="d.interface || d.protocol || d.interfaceType || '-'"></td>
+                              <td class="t-strong" x-text="d.model || d.name || '–'"></td>
+                              <td class="t-muted" x-text="d.interface || d.protocol || d.interfaceType || '–'"></td>
                               <td>
-                                <span class="badge" x-text="d.mediaType || '-'"></span>
+                                <span class="badge" x-text="d.mediaType || '–'"></span>
                               </td>
                               <td class="num" x-text="diskSize(d)"></td>
-                              <td class="t-muted" x-text="d.state || d.diskState || '-'"></td>
+                              <td class="t-muted" x-text="d.state || d.diskState || '–'"></td>
                               <td class="text-right">
-                                <span class="badge" :class="healthColor(d.health)" x-text="d.health || '-'"></span>
+                                <span class="badge" :class="healthColor(d.health)" x-text="d.health || '–'"></span>
                               </td>
-                              <td class="figure" x-text="d.serial || d.serialNumber || '-'"></td>
+                              <td class="figure" x-text="d.serial || d.serialNumber || '–'"></td>
                             </tr>
                           </template>
                           <tr x-show="(detail.storage?.disks ?? []).length === 0">
@@ -1851,7 +1849,7 @@
                     <div class="panel-head">
                       <svg class="icon icon-20 t-muted"><use href="#i-ethernet-port"/></svg>
                       <span class="title">Ethernet interfaces</span>
-                      <span class="count" x-text="detail.network.ports.length"></span>
+                      <span class="count" x-text="detail.network?.ports?.length"></span>
                     </div>
                     <div class="panel-body flush">
                       <div class="tbl-wrap">
@@ -1863,10 +1861,10 @@
                             </tr>
                           </thead>
                           <tbody>
-                            <template x-for="(p, i) in detail.network.ports" :key="i">
+                            <template x-for="(p, i) in detail.network?.ports" :key="i">
                               <tr>
                                 <td class="t-muted" x-text="p.id"></td>
-                                <td class="figure" x-text="p.mac || '-'"></td>
+                                <td class="figure" x-text="p.mac || '–'"></td>
                               </tr>
                             </template>
                           </tbody>
@@ -1883,33 +1881,33 @@
                 <template x-if="detail.power">
                   <div>
                     <!-- Budget -->
-                    <template x-if="detail.power.budget || detail.power.consumedWatts != null || detail.power.totalWatts != null">
+                    <template x-if="detail.power?.budget || detail.power?.consumedWatts != null || detail.power?.totalWatts != null">
                       <div class="tile-grid mb-6">
                         <div class="tile">
                           <div class="eyebrow">Budget</div>
                           <div class="tile-figure"
-                               :class="detail.power.budget?.budgetWatts == null ? 'is-empty' : ''"
-                               x-text="detail.power.budget?.budgetWatts != null ? detail.power.budget.budgetWatts + ' W' : '-'"></div>
+                               :class="detail.power?.budget?.budgetWatts == null ? 'is-empty' : ''"
+                               x-text="detail.power?.budget?.budgetWatts != null ? detail.power?.budget?.budgetWatts + ' W' : '–'"></div>
                         </div>
                         <div class="tile">
                           <div class="eyebrow">Total draw</div>
                           <div class="tile-figure"
-                               :class="(detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) == null ? 'is-empty' : ''"
-                               x-text="(detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) != null ? (detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) + ' W' : '-'"></div>
-                          <template x-if="detail.power.budget?.budgetWatts && (detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) != null">
+                               :class="(detail.power?.totalWatts ?? detail.power?.budget?.consumedWatts ?? detail.power?.consumedWatts) == null ? 'is-empty' : ''"
+                               x-text="(detail.power?.totalWatts ?? detail.power?.budget?.consumedWatts ?? detail.power?.consumedWatts) != null ? (detail.power?.totalWatts ?? detail.power?.budget?.consumedWatts ?? detail.power?.consumedWatts) + ' W' : '–'"></div>
+                          <template x-if="detail.power?.budget?.budgetWatts && (detail.power?.totalWatts ?? detail.power?.budget?.consumedWatts ?? detail.power?.consumedWatts) != null">
                             <div class="rail mt-2">
                               <div class="fill"
-                                   :class="(detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) / detail.power.budget.budgetWatts >= 0.9 ? 'is-critical' : (detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) / detail.power.budget.budgetWatts >= 0.75 ? 'is-caution' : ''"
-                                   :style="'width: ' + Math.max(0, Math.min(100, (detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) / detail.power.budget.budgetWatts * 100)) + '%'"></div>
+                                   :class="(detail.power?.totalWatts ?? detail.power?.budget?.consumedWatts ?? detail.power?.consumedWatts) / detail.power?.budget?.budgetWatts >= 0.9 ? 'is-critical' : (detail.power?.totalWatts ?? detail.power?.budget?.consumedWatts ?? detail.power?.consumedWatts) / detail.power?.budget?.budgetWatts >= 0.75 ? 'is-caution' : ''"
+                                   :style="'width: ' + Math.max(0, Math.min(100, (detail.power?.totalWatts ?? detail.power?.budget?.consumedWatts ?? detail.power?.consumedWatts) / detail.power?.budget?.budgetWatts * 100)) + '%'"></div>
                             </div>
                           </template>
-                          <div x-show="detail.power.totalWatts != null" class="tile-sub">
+                          <div x-show="detail.power?.totalWatts != null" class="tile-sub">
                             <span class="badge">live, IPMI</span>
                           </div>
                         </div>
                         <div class="tile">
                           <div class="eyebrow">Profile</div>
-                          <div class="t-heading mt-1" x-text="detail.power.budget?.profileType || '-'"></div>
+                          <div class="t-heading mt-1" x-text="detail.power?.budget?.profileType || '–'"></div>
                         </div>
                       </div>
                     </template>
@@ -1917,14 +1915,14 @@
                     <!-- PSUs -->
                     <h3 class="eyebrow mb-2">Power supplies</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <template x-for="(psu, i) in (detail.power.psus ?? detail.power.supplies ?? [])" :key="i">
+                      <template x-for="(psu, i) in (detail.power?.psus ?? detail.power?.supplies ?? [])" :key="i">
                         <div class="panel">
                           <div class="panel-head">
                             <svg class="icon icon-20 t-muted"><use href="#i-plug-zap"/></svg>
                             <span class="title" x-text="psu.name || psu.model || ('PSU ' + (i+1))"></span>
                             <div class="actions">
                               <span class="badge" :class="healthColor(psu.health || psu.operState)"
-                                    x-text="psu.health || psu.operState || psu.state || '-'"></span>
+                                    x-text="psu.health || psu.operState || psu.state || '–'"></span>
                             </div>
                           </div>
                           <div class="panel-body">
@@ -1948,9 +1946,9 @@
                                 </div>
                               </template>
                               <dt class="t-dim">Max output</dt>
-                              <dd class="t-control num" x-text="(psu.maxOutputWatts || psu.capacityWatts || psu.maxOutput || '-') + (psu.maxOutputWatts || psu.capacityWatts ? ' W' : '')"></dd>
+                              <dd class="t-control num" x-text="(psu.maxOutputWatts || psu.capacityWatts || psu.maxOutput || '–') + (psu.maxOutputWatts || psu.capacityWatts ? ' W' : '')"></dd>
                               <dt class="t-dim">Input (AC)</dt>
-                              <dd class="t-control num" x-text="psu.inputWatts != null ? psu.inputWatts + ' W' : '-'"></dd>
+                              <dd class="t-control num" x-text="psu.inputWatts != null ? psu.inputWatts + ' W' : '–'"></dd>
                               <template x-if="psu.lastOutputWatts != null">
                                 <div class="contents">
                                   <dt class="t-dim">Output (DC)</dt>
@@ -2027,7 +2025,7 @@
                           <template x-for="(t, i) in (detail.sensors?.temperatures ?? [])" :key="i">
                             <tr>
                               <td x-text="t.name"></td>
-                              <td class="num" x-text="t.celsius != null ? t.celsius + ' °C' : '-'"></td>
+                              <td class="num" x-text="t.celsius != null ? t.celsius + ' °C' : '–'"></td>
                               <td class="text-right">
                                 <span x-show="t.celsius != null" class="badge"
                                       :class="t.celsius > 70 ? 'badge-critical' : t.celsius > 50 ? 'badge-caution' : 'badge-good'"
@@ -2117,7 +2115,7 @@
                           <template x-for="(v, i) in (detail.sensors?.voltages ?? [])" :key="i">
                             <tr>
                               <td x-text="v.name"></td>
-                              <td class="num" x-text="(v.reading != null ? v.reading : '-') + ' ' + (v.units || 'V')"></td>
+                              <td class="num" x-text="(v.reading != null ? v.reading : '–') + ' ' + (v.units || 'V')"></td>
                               <td class="text-right">
                                 <span class="badge" :class="healthColor(v.health)" x-text="v.health || ''"></span>
                               </td>
@@ -3253,7 +3251,7 @@
           <div class="t-heading" x-text="selectedPortInfo?.name || ('Port ' + selectedPort)"></div>
           <div class="t-small t-muted">
             PVID
-            <span class="figure" x-text="pvidByPort[selectedPort] || '-'"></span>
+            <span class="figure" x-text="pvidByPort[selectedPort] || '–'"></span>
             <span x-show="pvidByPort[selectedPort]"
                   x-text="' (' + (vlanList.find(v => v.vid === pvidByPort[selectedPort])?.name || '') + ')'"></span>
           </div>
@@ -4645,6 +4643,19 @@
       // Reads the live token values off the root element. Called at render
       // time (not cached) so a theme change picks up the new palette on the
       // rebuild that setTheme() triggers. See STYLE-GUIDE §8.
+      // Canvas cannot parse color-mix(), and the tokens are oklch(), so an area
+      // fill has to be resolved to a concrete rgba first. Painting the colour
+      // onto a throwaway element and reading it back is the one reliable way to
+      // get the browser's own conversion.
+      _rgba(color, alpha) {
+        const el = document.createElement('span');
+        el.style.color = color; el.style.display = 'none';
+        document.body.appendChild(el);
+        const m = getComputedStyle(el).color.match(/-?[\d.]+/g);
+        el.remove();
+        return m ? `rgba(${Math.round(m[0])}, ${Math.round(m[1])}, ${Math.round(m[2])}, ${alpha})` : color;
+      },
+
       chartTokens() {
         const cs = getComputedStyle(document.documentElement);
         const t = (n) => cs.getPropertyValue(n).trim();
@@ -4701,9 +4712,8 @@
           data: {
             datasets: datasets.map(d => ({
               label: d.label, data: d.points, yAxisID: d.axis,
-              borderColor: d.color, backgroundColor: d.fill
-                ? 'color-mix(in oklab, ' + d.color + ' 14%, transparent)'   // §8: area fill at 14%
-                : d.color,
+              borderColor: d.color,
+              backgroundColor: d.fill ? this._rgba(d.color, 0.14) : d.color,   // §8: area at 14%
               fill: !!d.fill, tension: 0.25, pointRadius: 0, borderWidth: 1.5,
               spanGaps: false,
             })),
@@ -5579,14 +5589,14 @@
 
       memSize(m) {
         const mb = parseInt(m.capacityMB || m.capacityMiB || m.capacity || 0);
-        if (!mb) return '-';
+        if (!mb) return '–';
         return mb >= 1024 ? (mb/1024).toFixed(0)+' GB' : mb+' MB';
       },
 
       diskSize(d) {
         if (d.capacityGB) return d.capacityGB + ' GB';
         const bytes = parseInt(d.capacityBytes || d.coercedSizeMB || 0);
-        if (!bytes) return '-';
+        if (!bytes) return '–';
         if (d.coercedSizeMB) return (bytes/1024).toFixed(0)+' GB';
         return (bytes/1e9).toFixed(0)+' GB';
       },
