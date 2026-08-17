@@ -247,7 +247,7 @@ select.input option { background: var(--popover); color: var(--text); }
 /* A settings row: label at the left, control hard against the right edge. */
 .set-row { display: flex; align-items: center; gap: var(--s3); min-height: var(--h-button); padding: var(--s1) 0; }
 .set-row .set-label { flex: 1 1 auto; min-width: 0; font-size: var(--text-control); color: var(--text); }
-.set-row .set-sub   { font-size: var(--text-small); color: var(--text-dim); margin-top: 1px; }
+.set-row .set-sub   { display: block; font-size: var(--text-small); color: var(--text-dim); margin-top: 1px; }
 
 /* ══ Segmented control (§7.9) — replaces the old underline tabs ═════════════ */
 .segmented {
@@ -299,6 +299,9 @@ select.input option { background: var(--popover); color: var(--text); }
 .tbl tbody tr.is-clickable:hover { background: color-mix(in oklab, var(--control-hover) 50%, transparent); }
 .tbl tbody tr.is-selected { background: var(--control); }
 .tbl .num { text-align: right; font-family: var(--font-figure); font-variant-numeric: tabular-nums; }
+/* Right-aligned but NOT a figure: a status badge or an action in the last
+   column. .num would set it in the mono face, which is wrong for a word. */
+.tbl .end { text-align: right; }
 .tbl-wrap { overflow-x: auto; }
 
 /* Key/value facts list (the detail hero, §10). */
@@ -433,6 +436,20 @@ select.input option { background: var(--popover); color: var(--text); }
 .notice-critical .icon { color: var(--critical); }
 .notice-good { background: var(--good-bg); border-color: var(--good-line); }
 .notice-good .icon { color: var(--good); }
+/* Neutral notice: a sentence that is merely informational. The caution palette
+   was being used for "in progress" and "here is a fact", which cried wolf. */
+.notice-info { background: var(--control); border-color: var(--line); }
+.notice-info .icon { color: var(--text-muted); }
+
+/* Floating panel (§5): the undocked/floating surface. Baked into .toast, and
+   needed on its own by the pending-changes bar. */
+.float-panel {
+  background: color-mix(in oklab, var(--chrome) 96%, transparent);
+  backdrop-filter: blur(6px);
+  border: var(--hairline) solid var(--line-popover);
+  border-radius: var(--r-modal);
+  box-shadow: var(--shadow-float);
+}
 
 /* Toast: floating-panel styling, bottom right. */
 .toast {
@@ -448,6 +465,7 @@ select.input option { background: var(--popover); color: var(--text); }
 .toast .icon { flex: 0 0 auto; margin-top: 1px; }
 .toast.is-good .icon { color: var(--good); }
 .toast.is-error .icon { color: var(--critical); }
+.toast.is-warn .icon { color: var(--caution); }
 
 /* ══ Progress (§7.18) ═══════════════════════════════════════════════════════ */
 .rail { height: 3px; border-radius: 2px; background: var(--rail); overflow: hidden; }
@@ -521,6 +539,9 @@ select.input option { background: var(--popover); color: var(--text); }
    to the rank you asked for. Colour last, so colour wins. */
 .t-strong   { color: var(--text-strong); }
 .t-body     { color: var(--text); }
+.t-control  { color: var(--text); }
+.t-small    { color: var(--text); }
+.t-tiny     { color: var(--text-dim); }
 .t-muted    { color: var(--text-muted); }
 .t-dim      { color: var(--text-dim); }
 .t-accent   { color: var(--accent); }
