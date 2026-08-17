@@ -6,8 +6,9 @@ field names here match what the adapters actually return.
 
 Run from the repository root: python docs/seed-demo.py
 """
-import pathlib as _pl, os as _os
-_os.chdir(str(_pl.Path(__file__).resolve().parent.parent))
+import pathlib as _pl, os as _os, sys as _sys
+_root = str(_pl.Path(__file__).resolve().parent.parent)
+_os.chdir(_root); _sys.path.insert(0, _root)
 import os, json, datetime
 os.environ['DB_PATH'] = os.path.join(os.getcwd(), 'shots.db')
 os.environ['ADMIN_PASSWORD'] = 'smoketest123'
