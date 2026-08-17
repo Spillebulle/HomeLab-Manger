@@ -166,7 +166,7 @@
          The menu bar of the shell: identity on the left, global readouts and
          the session-wide controls on the right. Never page navigation. -->
     <header class="topbar">
-      <img src="/static/mark-64.png" alt="" class="topbar-mark">
+      <span class="topbar-mark" role="img" aria-label="HomeLab Manger"></span>
       <span class="topbar-name">HomeLab Manger</span>
 
       <div class="flex items-center gap-3 ml-auto">
@@ -179,7 +179,8 @@
           <svg class="icon"><use href="#i-docker"/></svg>
         </a>
 
-        <!-- Theme preference: three states, "system" stamps no class (§3). -->
+        <!-- Theme preference: three states, "system" stamps no class (§3.1),
+             then any theme in the library (§3.2). -->
         <div class="segmented">
           <button type="button" @click="setTheme('dark')"
                   :class="theme === 'dark' ? 'is-selected' : ''" title="Dark">
@@ -192,6 +193,11 @@
           <button type="button" @click="setTheme('system')"
                   :class="theme === 'system' ? 'is-selected' : ''" title="Follow the system">
             <svg class="icon"><use href="#i-monitor-cog"/></svg>
+          </button>
+          <button type="button" @click="openThemesModal()"
+                  :class="theme.startsWith('theme:') ? 'is-selected' : ''"
+                  :title="theme.startsWith('theme:') ? themeLabel(theme.slice(6)) : 'Themes'">
+            <svg class="icon"><use href="#i-layers"/></svg>
           </button>
         </div>
       </div>
@@ -3052,6 +3058,170 @@
     </div>
   </div>
 
+  <!-- ── Themes Modal (STYLE-GUIDE §3.1 editor, §3.2 files) ───────────────── -->
+  <div x-show="themeModal.show" x-transition class="scrim" @click.self="themeModal.show = false">
+    <div class="modal modal-lg" @click.stop>
+
+      <div class="modal-head">
+        <div class="flex-1 min-w-0">
+          <div class="title" x-text="themeModal.view === 'edit' ? 'Edit theme' : 'Themes'"></div>
+          <div class="sub" x-show="themeModal.view !== 'edit'">
+            A theme is a file. One made here opens in the other apps, and one made there opens here.
+          </div>
+          <div class="sub" x-show="themeModal.view === 'edit'">
+            Twenty-seven colours are stored. Everything else in the interface is derived from them.
+          </div>
+        </div>
+        <button @click="themeModal.show = false" class="btn-icon" title="Close">
+          <svg class="icon"><use href="#i-x"/></svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- ── list ── -->
+        <template x-if="themeModal.view !== 'edit'">
+          <div>
+            <div class="eyebrow" style="margin-bottom: var(--s2);">Built in</div>
+            <div class="card-grid" style="margin-bottom: var(--s5);">
+              <template x-for="b in [{id:'graphite',name:'Graphite',scheme:'dark'},{id:'paper',name:'Paper',scheme:'light'}]" :key="b.id">
+                <div class="card" style="padding: var(--s3);">
+                  <div class="flex items-center gap-2">
+                    <span class="t-card-title flex-1 truncate" x-text="b.name"></span>
+                    <span class="badge" x-text="b.scheme"></span>
+                  </div>
+                  <div class="t-tiny" style="margin-top: 2px;">Built in, so it is read-only.</div>
+                  <div class="flex items-center gap-1" style="margin-top: var(--s2);">
+                    <button class="btn btn-sm" @click="setTheme(b.id === 'paper' ? 'light' : 'dark')">Use</button>
+                    <button class="btn btn-sm" @click="duplicateTheme(b.id)">Copy</button>
+                    <button class="btn-icon sm" @click="exportTheme(b.id)" title="Export this theme">
+                      <svg class="icon"><use href="#i-download"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="eyebrow" style="margin-bottom: var(--s2);">Your themes</div>
+            <p x-show="!customThemes.length" class="t-control t-muted" style="margin-bottom: var(--s3);">
+              None of your own yet. Copy one to start, or import a file from another app.
+            </p>
+            <div class="card-grid">
+              <template x-for="t in customThemes" :key="t.id">
+                <div class="card" style="padding: var(--s3);"
+                     :class="theme === 'theme:' + t.id ? 'is-selected' : ''">
+                  <div class="flex items-center gap-2">
+                    <span class="t-card-title flex-1 truncate" x-text="t.name"></span>
+                    <span class="badge" x-text="t.scheme"></span>
+                  </div>
+                  <div class="t-tiny" style="margin-top: 2px;">
+                    Derives from <span x-text="t.base"></span>.
+                    <span x-show="theme === 'theme:' + t.id" class="t-accent">In use.</span>
+                  </div>
+                  <div class="flex items-center gap-1" style="margin-top: var(--s2);">
+                    <button class="btn btn-sm" @click="setTheme('theme:' + t.id)">Use</button>
+                    <button class="btn btn-sm" @click="openThemeEditor(t.id)">Edit</button>
+                    <button class="btn-icon sm" @click="exportTheme(t.id)" title="Export this theme">
+                      <svg class="icon"><use href="#i-download"/></svg>
+                    </button>
+                    <button class="btn-icon sm is-danger" @click="deleteTheme(t.id)" title="Delete this theme">
+                      <svg class="icon"><use href="#i-trash-2"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- "New theme" is a dashed card that copies the current one. -->
+              <button class="card-add" style="min-height: 96px;"
+                      @click="duplicateTheme(theme.startsWith('theme:') ? theme.slice(6) : (theme === 'light' ? 'paper' : 'graphite'))">
+                <svg class="icon"><use href="#i-plus"/></svg> New theme
+              </button>
+            </div>
+
+          </div>
+        </template>
+
+        <!-- ── editor ── -->
+        <template x-if="themeModal.view === 'edit'">
+          <div>
+            <div x-show="themeModal.notice" class="notice" style="margin-bottom: var(--s4);">
+              <svg class="icon"><use href="#i-triangle-alert"/></svg>
+              <span x-text="themeModal.notice"></span>
+            </div>
+
+            <div class="flex gap-3" style="margin-bottom: var(--s4);">
+              <div class="flex-1 min-w-0">
+                <label class="field-label" for="thm-name">Name</label>
+                <input id="thm-name" class="input" x-model="themeModal.name" maxlength="64">
+                <div class="field-hint">Up to 64 characters. Renaming keeps the same file.</div>
+              </div>
+              <div style="width: 200px;">
+                <label class="field-label" for="thm-base">Derives from</label>
+                <select id="thm-base" class="input" x-model="themeModal.base">
+                  <option value="graphite">Graphite (dark)</option>
+                  <option value="paper">Paper (light)</option>
+                </select>
+                <div class="field-hint">Fills anything the file does not carry, and decides whether the theme is dark.</div>
+              </div>
+            </div>
+
+            <template x-for="g in themeGroups" :key="g.label">
+              <div style="margin-bottom: var(--s4);">
+                <div class="eyebrow" style="margin-bottom: var(--s1);" x-text="g.label"></div>
+                <div class="panel">
+                  <div class="panel-body flush">
+                    <template x-for="k in g.keys" :key="k">
+                      <div class="row row-sep" style="gap: var(--s3);">
+                        <span style="width: 16px; height: 16px; border-radius: var(--r-tight);
+                                     border: 1px solid var(--line-popover); flex: 0 0 auto;"
+                              :style="'background: ' + (themeModal.colours[k] || '#000000') +
+                                      '; width:16px; height:16px; border-radius:var(--r-tight);' +
+                                      ' border:1px solid var(--line-popover); flex:0 0 auto;'"></span>
+                        <span class="t-control flex-1 min-w-0 truncate" x-text="k"></span>
+                        <input type="text" class="input figure"
+                               style="width: 108px; height: 22px; text-transform: uppercase;"
+                               :value="themeModal.colours[k]"
+                               @change="setThemeColour(k, $event.target.value); $event.target.value = themeModal.colours[k]">
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+
+      <div class="modal-foot">
+        <span class="note" x-show="themeModal.view !== 'edit'">
+          Themes are files in the library. Import accepts a file from any app in the family.
+        </span>
+        <span class="note" x-show="themeModal.view === 'edit'">
+          Saving writes the whole file, so what leaves here is complete.
+        </span>
+
+        <template x-if="themeModal.view !== 'edit'">
+          <div class="flex items-center gap-2" style="margin-left: auto;">
+            <input type="file" id="thm-import" accept=".umbertheme,text/plain"
+                   style="display: none;" @change="importTheme($event)">
+            <button class="btn" @click="document.getElementById('thm-import').click()">
+              <svg class="icon"><use href="#i-file-input"/></svg> Import a theme
+            </button>
+            <button class="btn btn-ghost" @click="themeModal.show = false">Close</button>
+          </div>
+        </template>
+        <template x-if="themeModal.view === 'edit'">
+          <div class="flex items-center gap-2" style="margin-left: auto;">
+            <button class="btn btn-ghost" @click="themeModal.view = 'list'">Back</button>
+            <button class="btn btn-primary" @click="saveTheme()" :disabled="themeModal.busy">
+              <svg class="icon"><use href="#i-save"/></svg> Save theme
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Confirm Modal ─────────────────────────────────────────────────────── -->
   <div x-show="confirmModal.show" x-transition class="scrim">
     <div @click.stop class="modal modal-sm">
@@ -3342,6 +3512,14 @@
       // decides (§3).
       theme:       (() => { try { return localStorage.getItem('hlm-theme') || 'dark'; }
                             catch (e) { return 'dark'; } })(),
+      // User themes (STYLE-GUIDE 3.2). `theme` holds 'dark' | 'light' |
+      // 'system' for the shipped pair, or 'theme:<id>' for one from the
+      // library. The library is the server's; these are just what the picker
+      // needs to draw.
+      customThemes: [],
+      themeGroups:  [],
+      themeModal:   { show: false, view: 'list', editing: null, name: '',
+                      base: 'graphite', colours: {}, busy: false, notice: '' },
       portFilter:  '',
       connectedFilter: '',
       selectedPort: null,
@@ -3432,6 +3610,12 @@
         await this.loadIdentity();
         this.loadAppInfo();
         this.loadAdapterRequirements();
+        await this.loadThemes();
+        // The <head> script stamps the shipped themes before first paint; a
+        // custom one needs the server, so it lands here.
+        if (this.theme && this.theme.startsWith('theme:')) {
+          await this.applyCustomTheme(this.theme.slice(6));
+        }
         await this.loadDevices();
         this.connectWebSocket();
         if (this.selectedId) await this.loadDetail(this.selectedId);
@@ -5315,10 +5499,167 @@
       setTheme(v) {
         this.theme = v;
         try { localStorage.setItem('hlm-theme', v); } catch (e) { /* private mode */ }
+        if (v && v.startsWith('theme:')) { this.applyCustomTheme(v.slice(6)); return; }
+        this._clearCustomTheme();
         document.documentElement.className = (v === 'system' ? '' : v);
         // Chart.js reads the tokens off the root element at render time, so an
         // existing chart keeps the old theme's colours until it is rebuilt.
+        this._rethemeCharts();
+      },
+
+      // A custom theme is applied as inline custom properties on <html>. It has
+      // to be inline: tokens.css sets the light palette behind
+      // `:root:not(.dark):not([data-theme="dark"])`, which outranks a plain
+      // `:root` rule, so a stylesheet override would lose to the OS preference.
+      // An element style beats every selector.
+      async applyCustomTheme(id) {
+        try {
+          const r = await fetch(`/api/themes/${encodeURIComponent(id)}`);
+          if (!r.ok) { this._fallbackTheme(); return; }
+          const t = await r.json();
+          this._clearCustomTheme();
+          const root = document.documentElement;
+          for (const [name, value] of Object.entries(t.tokens || {})) {
+            root.style.setProperty(name, value);
+          }
+          root.style.setProperty('color-scheme', t.scheme);
+          // A theme is dark because its base is, so stamp what it says it is:
+          // anything still keyed off the class agrees with the tokens.
+          root.className = t.scheme;
+          root.dataset.hlmTheme = id;
+          this._rethemeCharts();
+        } catch (e) { this._fallbackTheme(); }
+      },
+
+      _clearCustomTheme() {
+        const root = document.documentElement;
+        for (const name of Array.from(root.style)) {
+          if (name.startsWith('--')) root.style.removeProperty(name);
+        }
+        root.style.removeProperty('color-scheme');
+        delete root.dataset.hlmTheme;
+      },
+
+      // A theme that has been deleted must not leave the interface stuck on it.
+      _fallbackTheme() {
+        this._clearCustomTheme();
+        this.theme = 'dark';
+        try { localStorage.setItem('hlm-theme', 'dark'); } catch (e) {}
+        document.documentElement.className = 'dark';
+        this._rethemeCharts();
+      },
+
+      _rethemeCharts() {
         if (this.tab === 'graphs' && this.isUps) this.loadUpsHistory();
+      },
+
+      async loadThemes() {
+        try {
+          const r = await fetch('/api/themes');
+          if (!r.ok) return;
+          const d = await r.json();
+          this.customThemes = (d.themes || []).filter(t => !t.builtin);
+          this.themeGroups = d.groups || [];
+        } catch (e) { /* the picker still offers the shipped pair */ }
+      },
+
+      themeLabel(id) {
+        const t = this.customThemes.find(x => x.id === id);
+        return t ? t.name : id;
+      },
+
+      async importTheme(event) {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';           // so the same file can be picked twice
+        if (!file) return;
+        const body = new FormData();
+        body.append('file', file);
+        try {
+          const r = await fetch('/api/themes/import', { method: 'POST', body });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { this.showToast(d.detail || 'That file could not be imported.', 'error'); return; }
+          await this.loadThemes();
+          this.setTheme('theme:' + d.theme.id);
+          this.showToast(d.detail ? `Imported "${d.theme.name}". ${d.detail}` : `Imported "${d.theme.name}".`,
+                         d.skipped ? 'warning' : 'success');
+        } catch (e) { this.showToast('That file could not be imported.', 'error'); }
+      },
+
+      exportTheme(id) { window.location.href = `/api/themes/${encodeURIComponent(id)}/export`; },
+
+      async duplicateTheme(sourceId) {
+        try {
+          const r = await fetch('/api/themes', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: sourceId }),
+          });
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { this.showToast(d.detail || 'Could not copy that theme.', 'error'); return; }
+          await this.loadThemes();
+          this.setTheme('theme:' + d.theme.id);
+          this.openThemeEditor(d.theme.id);
+        } catch (e) { this.showToast('Could not copy that theme.', 'error'); }
+      },
+
+      async deleteTheme(id) {
+        this.confirm(`Delete the theme "${this.themeLabel(id)}"? The file is removed from the library.`, async () => {
+          const r = await fetch(`/api/themes/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          if (!r.ok) { this.showToast('Could not delete that theme.', 'error'); return; }
+          if (this.theme === 'theme:' + id) this._fallbackTheme();
+          await this.loadThemes();
+          this.showToast('Theme deleted.');
+        });
+      },
+
+      openThemesModal() {
+        this.themeModal.show = true;
+        this.themeModal.view = 'list';
+        this.themeModal.notice = '';
+        this.loadThemes();
+      },
+
+      // The editor writes straight into the staged colours; the file is only
+      // touched on Save.
+      setThemeColour(key, value) {
+        const v = (value || '').trim();
+        const ok = /^#?([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(v);
+        if (!ok) return;                       // refused rather than guessed
+        let hex = v.startsWith('#') ? v.slice(1) : v;
+        if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+        this.themeModal.colours[key] = '#' + hex.toUpperCase();
+      },
+
+      async openThemeEditor(id) {
+        this.themeModal.busy = true; this.themeModal.show = true;
+        this.themeModal.notice = '';
+        try {
+          const r = await fetch(`/api/themes/${encodeURIComponent(id)}`);
+          if (!r.ok) { this.themeModal.show = false; return; }
+          const t = await r.json();
+          this.themeModal.view = 'edit';
+          this.themeModal.editing = id;
+          this.themeModal.name = t.name;
+          this.themeModal.base = t.base;
+          this.themeModal.colours = { ...t.colours };
+          if (t.skipped) this.themeModal.notice = t.skipped + ' line(s) in this file could not be read, so those colours came from the theme it names as its base.';
+        } finally { this.themeModal.busy = false; }
+      },
+
+      async saveTheme() {
+        const m = this.themeModal;
+        if (!m.editing) return;
+        m.busy = true;
+        try {
+          const r = await fetch(`/api/themes/${encodeURIComponent(m.editing)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: m.name, base: m.base, colours: m.colours }),
+          });
+          if (!r.ok) { this.showToast('Could not save that theme.', 'error'); return; }
+          await this.loadThemes();
+          if (this.theme === 'theme:' + m.editing) await this.applyCustomTheme(m.editing);
+          m.show = false;
+          this.showToast('Theme saved.');
+        } finally { m.busy = false; }
       },
 
       // A device modal that closes must not leave editingDevice pointing at the

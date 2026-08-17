@@ -63,7 +63,15 @@ a:hover { text-decoration: underline; }
   display: flex; align-items: center; gap: var(--s3);
   padding: 0 var(--pad-strip);
 }
-.topbar-mark { width: 15px; height: 15px; border-radius: var(--r-tight); flex: 0 0 auto; display: block; }
+/* The mark is the accent (§17.4), so it is drawn as a mask filled with the
+   token rather than a baked-in colour. That way it follows an imported theme
+   instead of disagreeing with it. */
+.topbar-mark {
+  width: 15px; height: 15px; flex: 0 0 auto; display: block;
+  background: var(--accent);
+  -webkit-mask: url("/static/mark-64.png") center / contain no-repeat;
+          mask: url("/static/mark-64.png") center / contain no-repeat;
+}
 .topbar-name { font-size: var(--text-body); font-weight: 600; color: var(--text-strong); }
 
 .sidebar {

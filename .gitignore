@@ -41,3 +41,6 @@ node_modules/
 
 # Local screenshot fixtures
 shots.db
+
+# Theme library (runtime data; lives beside the DB in the /data volume)
+themes/

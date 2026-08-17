@@ -7,10 +7,11 @@ import ssl
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from threading import Lock
 
 import httpx
-from fastapi import APIRouter, FastAPI, HTTPException, Depends, Query, Request, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, FastAPI, File, HTTPException, Depends, Query, Request, UploadFile, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
@@ -32,6 +33,7 @@ from .schemas import (
 from . import events as events_mod
 from . import poller
 from . import services_manager
+from . import themes as themes_mod
 from .timeutil import utcnow
 from .services_namecheap import NamecheapError
 from .services_monitoring import MonitoringError
@@ -2103,6 +2105,172 @@ async def delete_monitor(monitor_id: int, keep_remote: bool = False,
     db.delete(m)
     db.commit()
     return {"ok": True, "kept_remote": keep_remote, "cleanup_errors": errors}
+
+
+# -- User themes (STYLE-GUIDE 3.2) --------------------------------------------
+# The `.umbertheme` format is the family's, not this app's: a theme somebody
+# makes here opens unchanged in the other apps and vice versa. backend/themes.py
+# is the implementation; these routes are the library and the interchange.
+#
+# The library lives beside the database, so it persists in the /data volume the
+# same way the credential key and the session secret do. Nothing shipped lives
+# there: Graphite and Paper are compiled in, and the only way to get a custom
+# theme is to import one or copy one, which puts the copy where an update never
+# reaches.
+
+def _theme_library() -> themes_mod.ThemeLibrary:
+    import os as _os
+    from .database import DB_PATH
+    return themes_mod.ThemeLibrary(Path(_os.path.dirname(DB_PATH) or ".") / "themes")
+
+
+def _theme_payload(theme: dict, theme_id: str, skipped: int = 0) -> dict:
+    """A theme as the browser needs it: the identity, plus the full token table
+    already derived, so the client only has to set custom properties."""
+    return {
+        "id": theme_id,
+        "name": theme["name"],
+        "base": theme["base"],
+        "scheme": theme["scheme"],
+        "builtin": theme_id in themes_mod.BUILTINS,
+        "skipped": skipped,
+        "colours": theme["colours"],
+        "tokens": themes_mod.derive(theme["colours"], theme["base"]),
+    }
+
+
+def _builtin_theme(theme_id: str) -> dict:
+    meta = themes_mod.BUILTINS[theme_id]
+    return {"name": meta["name"], "base": theme_id, "scheme": meta["scheme"],
+            "colours": themes_mod.builtin(theme_id)}
+
+
+@api.get("/themes")
+def list_themes():
+    """Every theme the picker can offer: the two shipped ones, then the library.
+    `groups` lets the editor draw the twenty-seven in the file's own order
+    without the frontend hard-coding it."""
+    shipped = [{"id": t["id"], "name": t["name"], "base": t["id"],
+                "scheme": t["scheme"], "builtin": True, "skipped": 0}
+               for t in themes_mod.BUILTINS.values()]
+    return {
+        "themes": shipped + _theme_library().list(),
+        "groups": [{"label": g, "keys": k} for g, k in themes_mod.GROUP_LABELS],
+        "keys": themes_mod.KEY_ORDER,
+        "extension": themes_mod.EXTENSION,
+    }
+
+
+@api.get("/themes/{theme_id}")
+def get_theme(theme_id: str):
+    if theme_id in themes_mod.BUILTINS:
+        return _theme_payload(_builtin_theme(theme_id), theme_id)
+    try:
+        theme, skipped = _theme_library().read(theme_id)
+    except FileNotFoundError:
+        raise HTTPException(404, "No theme with that name.")
+    return _theme_payload(theme, theme_id, skipped)
+
+
+@api.get("/themes/{theme_id}/export")
+def export_theme(theme_id: str):
+    """Export is copying a file out of the library. The interchange format is
+    the storage format, so a custom theme exports the stored bytes and a shipped
+    one is encoded on the spot by the same encoder."""
+    if theme_id in themes_mod.BUILTINS:
+        t = _builtin_theme(theme_id)
+        body = themes_mod.encode(t["name"], t["base"], t["colours"])
+    else:
+        try:
+            body = _theme_library().raw(theme_id)
+        except OSError:
+            raise HTTPException(404, "No theme with that name.")
+    filename = themes_mod.slugify(theme_id) + themes_mod.EXTENSION
+    return Response(content=body, media_type="text/plain; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="%s"' % filename})
+
+
+@api.post("/themes/import")
+async def import_theme(file: UploadFile = File(...)):
+    """Import is bringing a file into the library. The header decides whether it
+    is a theme, not the extension, so the file dialog can offer anything."""
+    raw = await file.read()
+    if len(raw) > 256 * 1024:
+        raise HTTPException(400, "That file is too large to be a theme.")
+    try:
+        theme, skipped = themes_mod.parse(raw.decode("utf-8", errors="replace"),
+                                          stem=Path(file.filename or "").stem)
+    except themes_mod.ThemeFileError as exc:
+        raise HTTPException(400, str(exc))
+
+    lib = _theme_library()
+    theme_id = lib.unique_id(theme["name"])
+    lib.write(theme_id, themes_mod.encode(theme["name"], theme["base"], theme["colours"]))
+    return {"ok": True, "theme": _theme_payload(theme, theme_id, skipped),
+            "skipped": skipped,
+            "detail": themes_mod.skipped_sentence(skipped) if skipped else None}
+
+
+@api.post("/themes")
+def create_theme(payload: dict):
+    """New themes are made by copying one. That is what keeps the shipped themes
+    out of the library, where an update would replace them wholesale."""
+    source = str(payload.get("from") or "graphite")
+    if source in themes_mod.BUILTINS:
+        base = _builtin_theme(source)
+    else:
+        try:
+            base, _ = _theme_library().read(source)
+        except FileNotFoundError:
+            raise HTTPException(404, "No theme with that name.")
+    name = str(payload.get("name") or "").strip() or (base["name"] + " copy")
+    supplied = payload.get("colours")
+    if isinstance(supplied, dict):
+        for key, value in supplied.items():
+            parsed = themes_mod.parse_colour(str(value))
+            if key in themes_mod.KEY_TO_CSS and parsed:
+                base["colours"][key] = parsed
+    lib = _theme_library()
+    theme_id = lib.unique_id(name)
+    lib.write(theme_id, themes_mod.encode(name, base["base"], base["colours"]))
+    theme, skipped = lib.read(theme_id)
+    return {"ok": True, "theme": _theme_payload(theme, theme_id, skipped)}
+
+
+@api.put("/themes/{theme_id}")
+def update_theme(theme_id: str, payload: dict):
+    """Editing leaves the file where it is. The id is never re-derived from the
+    name, because the id is what the preference points at and a rename must not
+    orphan it."""
+    if theme_id in themes_mod.BUILTINS:
+        raise HTTPException(400, "Graphite and Paper are built in, so they are "
+                                 "read-only. Copy one to make your own.")
+    lib = _theme_library()
+    try:
+        theme, _ = lib.read(theme_id)
+    except FileNotFoundError:
+        raise HTTPException(404, "No theme with that name.")
+    colours = dict(theme["colours"])
+    supplied = payload.get("colours")
+    if isinstance(supplied, dict):
+        for key, value in supplied.items():
+            parsed = themes_mod.parse_colour(str(value))
+            if key in themes_mod.KEY_TO_CSS and parsed:
+                colours[key] = parsed
+    lib.write(theme_id, themes_mod.encode(str(payload.get("name") or theme["name"]),
+                                          str(payload.get("base") or theme["base"]),
+                                          colours))
+    theme, skipped = lib.read(theme_id)
+    return {"ok": True, "theme": _theme_payload(theme, theme_id, skipped)}
+
+
+@api.delete("/themes/{theme_id}")
+def delete_theme(theme_id: str):
+    if theme_id in themes_mod.BUILTINS:
+        raise HTTPException(400, "Graphite and Paper are built in and cannot be deleted.")
+    if not _theme_library().delete(theme_id):
+        raise HTTPException(404, "No theme with that name.")
+    return {"ok": True}
 
 
 app.include_router(api)
