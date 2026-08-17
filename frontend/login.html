@@ -1,68 +1,81 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HomeLab Manger - Sign in</title>
-  <link rel="icon" type="image/png" href="/static/logo.png">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            surface: '#0f1117',
-            panel:   '#161b27',
-            card:    '#1e2433',
-            border:  '#2a3144',
-          }
-        }
-      }
-    }
-  </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <style>[x-cloak] { display: none !important; }</style>
-</head>
-<body class="bg-surface text-gray-200 h-screen flex items-center justify-center" x-data="loginPage()" x-cloak>
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon.png">
+  <link rel="icon" href="/static/favicon.ico" sizes="any">
 
-  <div class="w-full max-w-sm">
-    <div class="flex items-center justify-center gap-2 mb-6">
-      <img src="/static/logo.png" alt="" class="h-9 w-9 object-contain">
-      <span class="font-bold text-white text-xl">HomeLab Manger</span>
+  <!-- Same three-state theme as the app, stamped before first paint so the
+       sign-in page does not flash a different theme than the one behind it. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('hlm-theme') || 'dark';
+        if (t === 'dark' || t === 'light') document.documentElement.className = t;
+      } catch (e) { document.documentElement.className = 'dark'; }
+    })();
+  </script>
+
+  <link rel="stylesheet" href="/static/tokens.css">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+</head>
+<body class="h-screen flex items-center justify-center" x-data="loginPage()" x-cloak>
+
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><defs>
+    <symbol id="i-loader-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></symbol>
+    <symbol id="i-triangle-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+  </defs></svg>
+
+  <div class="w-full" style="max-width: 430px; padding: var(--s5);">
+
+    <!-- The mark and wordmark, as they appear in the app's top bar. -->
+    <div class="flex items-center justify-center gap-2" style="margin-bottom: var(--s5);">
+      <img src="/static/mark-64.png" alt="" width="20" height="20" style="border-radius: var(--r-tight);">
+      <span class="t-heading">HomeLab Manger</span>
     </div>
 
-    <form @submit.prevent="submit()"
-          class="bg-panel border border-border rounded-lg p-6 shadow-lg space-y-4">
-      <h1 class="text-lg font-semibold text-white text-center">Sign in</h1>
+    <form @submit.prevent="submit()" class="panel">
+      <div class="panel-body" style="padding: var(--s5);">
 
-      <div>
-        <label class="block text-xs text-gray-400 mb-1">Username</label>
-        <input x-model="username" type="text" autocomplete="username" required autofocus
-               class="w-full bg-card border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+        <h1 class="t-page" style="margin-bottom: var(--s1);">Sign in</h1>
+        <p class="t-control t-muted" style="margin-bottom: var(--s4);">
+          This server is private. Sign in to manage your devices.
+        </p>
+
+        <div style="margin-bottom: var(--s3);">
+          <label class="field-label" for="hlm-user">Username</label>
+          <input id="hlm-user" x-model="username" type="text" class="input"
+                 autocomplete="username" required autofocus>
+        </div>
+
+        <div style="margin-bottom: var(--s3);">
+          <label class="field-label" for="hlm-pass">Password</label>
+          <input id="hlm-pass" x-model="password" type="password" class="input"
+                 autocomplete="current-password" required>
+        </div>
+
+        <div x-show="error" class="notice notice-critical" style="margin-bottom: var(--s3);">
+          <svg class="icon"><use href="#i-triangle-alert"/></svg>
+          <span x-text="error"></span>
+        </div>
+
+        <button type="submit" :disabled="busy" class="btn btn-primary" style="width: 100%;">
+          <span x-show="!busy">Sign in</span>
+          <span x-show="busy" class="flex items-center gap-2">
+            <svg class="icon spinner"><use href="#i-loader-circle"/></svg> Signing in
+          </span>
+        </button>
       </div>
-
-      <div>
-        <label class="block text-xs text-gray-400 mb-1">Password</label>
-        <input x-model="password" type="password" autocomplete="current-password" required
-               class="w-full bg-card border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-      </div>
-
-      <div x-show="error" x-text="error"
-           class="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded px-3 py-2"></div>
-
-      <button type="submit" :disabled="busy"
-              class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-3 py-2 rounded transition-colors">
-        <span x-show="!busy">Sign in</span>
-        <span x-show="busy"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-      </button>
     </form>
 
-    <p class="text-xs text-gray-500 text-center mt-4">
-      First time? Default credentials are
-      <code class="text-gray-400">admin</code> / <code class="text-gray-400">changeme</code>
-      unless <code class="text-gray-400">ADMIN_PASSWORD</code> was set on first run.
+    <p class="t-tiny" style="text-align: center; margin-top: var(--s4);">
+      On a new install the credentials are
+      <code class="figure">admin</code> and <code class="figure">changeme</code>,
+      unless <code class="figure">ADMIN_PASSWORD</code> was set on the first run.
     </p>
   </div>
 
@@ -92,9 +105,9 @@
               return;
             }
             const data = await r.json().catch(() => ({}));
-            this.error = data.detail || 'Sign-in failed';
+            this.error = data.detail || 'Sign-in failed.';
           } catch (e) {
-            this.error = 'Network error';
+            this.error = 'Could not reach the server.';
           } finally {
             this.busy = false;
           }
