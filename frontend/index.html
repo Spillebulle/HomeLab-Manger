@@ -343,7 +343,7 @@
                   </div>
                 </div>
                 <div class="flex items-center justify-between gap-2 mt-3">
-                  <span class="badge" x-text="d.adapter_type.toUpperCase()"></span>
+                  <span class="badge" x-text="adapterLabel(d)"></span>
                   <span class="figure t-tiny" x-text="d.last_seen ? relTime(d.last_seen) : 'never'"></span>
                 </div>
                 <div x-show="d.status_error" class="notice notice-critical mt-3">
@@ -685,7 +685,7 @@
                       <span x-show="m.live" class="badge shrink-0"
                             :class="{ 'badge-good': (m.live || '').toUpperCase() === 'UP',
                                       'badge-critical': (m.live || '').toUpperCase() === 'DOWN' }"
-                            x-text="m.live"></span>
+                            x-text="(m.live || '').toLowerCase()"></span>
                       <span x-show="m.status === 'error'" class="badge badge-critical shrink-0" :title="m.detail">
                         <svg class="icon"><use href="#i-triangle-alert"/></svg>Error
                       </span>
@@ -731,7 +731,7 @@
               <div class="min-w-0">
                 <div class="t-page truncate" x-text="selectedDevice?.name"></div>
                 <div class="flex items-baseline gap-2 min-w-0">
-                  <span class="t-small t-muted truncate" x-text="selectedDevice?.hostname + ' · ' + (selectedDevice?.adapter_type || '').toUpperCase()"></span>
+                  <span class="t-small t-muted truncate" x-text="selectedDevice?.hostname + ' · ' + adapterLabel(selectedDevice)"></span>
                   <span class="t-tiny figure shrink-0" x-text="detail?.status_updated ? 'Updated ' + relTime(detail.status_updated) : ''"></span>
                 </div>
               </div>
@@ -2224,7 +2224,7 @@
           <div class="title" x-text="editingDevice ? 'Edit device' : 'Add device'"></div>
           <div class="sub">Name the device, pick the adapter that speaks to it, then test the connection before saving.</div>
         </div>
-        <button @click="showDeviceModal = false" class="btn-icon" title="Close">
+        <button @click="closeDeviceModal()" class="btn-icon" title="Close">
           <svg class="icon"><use href="#i-x"/></svg>
         </button>
       </div>
@@ -2523,7 +2523,7 @@
               </span>
             </template>
           </button>
-          <button @click="showDeviceModal = false" class="btn btn-ghost">Cancel</button>
+          <button @click="closeDeviceModal()" class="btn btn-ghost">Cancel</button>
           <button @click="saveDevice()" class="btn btn-primary">
             <span x-text="editingDevice ? 'Save' : 'Add'"></span>
           </button>
@@ -3338,6 +3338,12 @@
       detail:      {},
       loading:     false,
       tab:         'overview',
+      // Theme preference: 'dark' | 'light' | 'system'. The <head> script stamps
+      // the class before first paint; this mirrors it so the control can show
+      // which one is active. 'system' stamps nothing so prefers-color-scheme
+      // decides (§3).
+      theme:       (() => { try { return localStorage.getItem('hlm-theme') || 'dark'; }
+                            catch (e) { return 'dark'; } })(),
       portFilter:  '',
       connectedFilter: '',
       selectedPort: null,
@@ -3701,10 +3707,10 @@
       },
 
       containerDotClass(c) {
-        if (!c) return 'text-gray-500';                 // unknown (Portainer unreachable / container gone)
-        if (c.state === 'running') return 'text-green-400';
-        if (['paused', 'restarting', 'created'].includes(c.state)) return 'text-amber-400';
-        return 'text-red-400';                          // exited / dead
+        if (!c) return '';                              // unknown: the neutral badge
+        if (c.state === 'running') return 'badge-good';
+        if (['paused', 'restarting', 'created'].includes(c.state)) return 'badge-caution';
+        return 'badge-critical';                        // exited / dead
       },
 
       portainerUrl(s) {
@@ -3832,11 +3838,11 @@
       },
 
       monitorStateDot(m) {
-        if (!m.enabled) return 'bg-gray-500';
+        if (!m.enabled) return 'dot-unknown';
         const s = (m.live || '').toUpperCase();
-        if (s === 'UP') return 'bg-green-500';
-        if (s === 'DOWN') return 'bg-red-500';
-        return 'bg-yellow-500';  // unknown / not yet checked
+        if (s === 'UP') return 'dot-good';
+        if (s === 'DOWN') return 'dot-critical';
+        return 'dot-caution';  // unknown / not yet checked
       },
 
       async openMonitoring() {
@@ -3965,10 +3971,8 @@
       },
 
       stepChipClass(st) {
-        return {
-          ok:    'bg-green-500/15 text-green-300 border-green-600/40',
-          error: 'bg-red-500/15 text-red-300 border-red-600/40',
-        }[st] || 'bg-gray-600/20 text-gray-400 border-gray-600/40';
+        // The bare .badge is already the neutral "pending" state.
+        return { ok: 'badge-good', error: 'badge-critical' }[st] || '';
       },
 
       firstServiceError(s) {
@@ -4534,9 +4538,11 @@
       fmtPct(v)  { return v == null ? '-' : Math.round(v) + '%'; },
 
       upsStateClass(state) {
-        if (state === 'low_battery') return 'bg-red-900/30 border-red-700 text-red-200';
-        if (state === 'on_battery')  return 'bg-yellow-900/30 border-yellow-700 text-yellow-200';
-        return 'bg-green-900/30 border-green-700 text-green-200';
+        // Notice modifiers. The base .notice is already the caution palette,
+        // which is what "on battery" should read as.
+        if (state === 'low_battery') return 'notice-critical';
+        if (state === 'on_battery')  return '';
+        return 'notice-good';
       },
 
       async initUpsGraphs() {
@@ -4606,6 +4612,7 @@
           if (!r.ok) return;
           data = await r.json();
         } catch (e) { return; }
+        const T = this.chartTokens();
         const m = data.metrics || {};
         this.upsHistoryEmpty = !Object.values(m).some(s => s && s.length);
         // Pin the axis to the requested window so gaps at the ends are visible.
@@ -4613,20 +4620,20 @@
         const xMax = new Date(data.to).getTime();
 
         this._renderChart('upsChartPower', [
-          { label: 'Load %', points: this._withGaps(m.load_pct), color: '#60a5fa', axis: 'y' },
-          { label: 'Watts',  points: this._withGaps(m.watts),    color: '#f59e0b', axis: 'y1' },
+          { label: 'Load', points: this._withGaps(m.load_pct), color: T.series[0], axis: 'y' },
+          { label: 'Power', points: this._withGaps(m.watts),    color: T.series[1], axis: 'y1' },
         ], { y: { title: '%', max: 100 }, y1: { title: 'W', right: true } }, xMin, xMax);
 
         this._renderChart('upsChartCharge', [
-          { label: 'Charge %', points: this._withGaps(m.charge_pct), color: '#34d399', axis: 'y', fill: true },
+          { label: 'Charge', points: this._withGaps(m.charge_pct), color: T.accent, axis: 'y', fill: true },
         ], { y: { title: '%', max: 100 } }, xMin, xMax);
 
         this._renderChart('upsChartRuntime', [
-          { label: 'Runtime (min)', points: this._withGaps(m.runtime_sec, v => Math.round(v / 60 * 10) / 10), color: '#a78bfa', axis: 'y' },
+          { label: 'Runtime', points: this._withGaps(m.runtime_sec, v => Math.round(v / 60 * 10) / 10), color: T.accent, axis: 'y' },
         ], { y: { title: 'min' } }, xMin, xMax);
 
         this._renderChart('upsChartVoltage', [
-          { label: 'Input V', points: this._withGaps(m.input_voltage), color: '#f472b6', axis: 'y' },
+          { label: 'Input voltage', points: this._withGaps(m.input_voltage), color: T.accent, axis: 'y' },
         ], { y: { title: 'V' } }, xMin, xMax);
       },
 
@@ -4635,6 +4642,21 @@
       // internal canvas/ref identity checks. Uses a LINEAR x-axis of epoch-ms so
       // points sit at their real time (gaps show as empty space) with `spanGaps:
       // false` breaking the line at the null markers _withGaps inserts.
+      // Reads the live token values off the root element. Called at render
+      // time (not cached) so a theme change picks up the new palette on the
+      // rebuild that setTheme() triggers. See STYLE-GUIDE §8.
+      chartTokens() {
+        const cs = getComputedStyle(document.documentElement);
+        const t = (n) => cs.getPropertyValue(n).trim();
+        return {
+          accent: t('--accent'), grid: t('--line-soft'), base: t('--line'),
+          ink: t('--text-dim'),
+          series: [t('--series-1'), t('--series-2'), t('--series-3'),
+                   t('--series-4'), t('--series-5'), t('--series-6')],
+          mono: cs.getPropertyValue('--font-figure').trim(),
+        };
+      },
+
       _renderChart(canvasId, datasets, axes, xMin, xMax) {
         if (typeof Chart === 'undefined') return;
         const el = document.getElementById(canvasId);
@@ -4650,12 +4672,17 @@
             ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + t
             : t;
         };
+        const T = this.chartTokens();
+        // §8: horizontal hairlines only. No vertical grid, and the only axis
+        // line is the baseline.
         const scales = {
           x: {
             type: 'linear', min: xMin, max: xMax,
-            ticks: { color: '#6b7280', maxTicksLimit: 7, font: { size: 9 },
+            ticks: { color: T.ink, maxTicksLimit: 7,
+                     font: { size: 10.5, family: T.mono },
                      callback: v => fmt(v) },
-            grid: { color: '#2a3144' },
+            grid: { display: false },
+            border: { color: T.base },
           },
         };
         for (const [id, cfg] of Object.entries(axes)) {
@@ -4663,9 +4690,10 @@
             position: cfg.right ? 'right' : 'left',
             beginAtZero: true,
             ...(cfg.max ? { max: cfg.max } : {}),
-            title: { display: !!cfg.title, text: cfg.title, color: '#6b7280', font: { size: 9 } },
-            ticks: { color: '#6b7280', font: { size: 9 } },
-            grid: { color: cfg.right ? 'transparent' : '#2a3144' },
+            title: { display: !!cfg.title, text: cfg.title, color: T.ink, font: { size: 10.5 } },
+            ticks: { color: T.ink, font: { size: 10.5, family: T.mono } },
+            grid: { color: cfg.right ? 'transparent' : T.grid, drawTicks: false },
+            border: { display: false },
           };
         }
         window.__upsCharts[canvasId] = new Chart(el, {
@@ -4673,7 +4701,9 @@
           data: {
             datasets: datasets.map(d => ({
               label: d.label, data: d.points, yAxisID: d.axis,
-              borderColor: d.color, backgroundColor: d.fill ? d.color + '33' : d.color,
+              borderColor: d.color, backgroundColor: d.fill
+                ? 'color-mix(in oklab, ' + d.color + ' 14%, transparent)'   // §8: area fill at 14%
+                : d.color,
               fill: !!d.fill, tension: 0.25, pointRadius: 0, borderWidth: 1.5,
               spanGaps: false,
             })),
@@ -4682,7 +4712,9 @@
             responsive: true, maintainAspectRatio: false, animation: false,
             interaction: { intersect: false, mode: 'index' },
             plugins: {
-              legend: { labels: { color: '#9ca3af', boxWidth: 12, font: { size: 10 } } },
+              legend: { display: datasets.length > 1,   // a single series needs no legend
+                        labels: { color: T.ink, boxWidth: 8, boxHeight: 8,
+                                  usePointStyle: false, font: { size: 10.5 } } },
               tooltip: { callbacks: { title: items => items.length ? fmt(items[0].parsed.x) : '' } },
             },
             scales,
@@ -5158,16 +5190,20 @@
         this.showToast(headline + '\n' + lines.join('\n'), type);
       },
 
-      async deleteDevice() {
-        this.confirm(`Delete "${this.editingDevice.name}"?`, async () => {
-          const r = await fetch(`/api/devices/${this.editingDevice.id}`, { method: 'DELETE' });
+      async deleteDevice(device) {
+        // Callable from the edit modal (no argument) and from the device hero,
+        // where editingDevice is null.
+        const d = device || this.editingDevice;
+        if (!d) return;
+        this.confirm(`Delete "${d.name}"? Its cached readings, metric history and shutdown rules go with it. This cannot be undone.`, async () => {
+          const r = await fetch(`/api/devices/${d.id}`, { method: 'DELETE' });
           if (!r.ok) {
             const err = await r.json().catch(() => ({}));
             this.showToast('Failed to delete device: ' + (err.detail || r.status), 'error');
             return;
           }
           this.showDeviceModal = false;
-          if (this.selectedId === this.editingDevice.id) { this._destroyUpsCharts(); this.selectedId = null; this.detail = {}; }
+          if (this.selectedId === d.id) { this._destroyUpsCharts(); this.selectedId = null; this.detail = {}; }
           await this.loadDevices();
           this.showToast('Device deleted');
         });
@@ -5232,38 +5268,62 @@
       },
 
       get availableTabs() {
-        const notif = { id: 'notifications', label: 'Notifications', icon: 'fa-solid fa-bell' };
+        const notif = { id: 'notifications', label: 'Notifications', icon: 'i-bell' };
         if (this.isSwitch) return [
-          { id: 'overview',  label: 'Overview',  icon: 'fa-solid fa-gauge' },
-          { id: 'ports',     label: 'Ports',     icon: 'fa-solid fa-network-wired' },
-          { id: 'connected', label: 'Connected', icon: 'fa-solid fa-plug' },
-          { id: 'poe',       label: 'PoE',       icon: 'fa-solid fa-bolt' },
-          { id: 'vlans',     label: 'VLANs',     icon: 'fa-solid fa-sitemap' },
+          { id: 'overview',  label: 'Overview',  icon: 'i-gauge' },
+          { id: 'ports',     label: 'Ports',     icon: 'i-ethernet-port' },
+          { id: 'connected', label: 'Connected', icon: 'i-plug' },
+          { id: 'poe',       label: 'PoE',       icon: 'i-zap' },
+          { id: 'vlans',     label: 'VLANs',     icon: 'i-network' },
           notif,
         ];
         if (this.isServer) {
           const tabs = [
-            { id: 'overview', label: 'Overview',  icon: 'fa-solid fa-gauge' },
-            { id: 'hardware', label: 'Hardware',  icon: 'fa-solid fa-microchip' },
-            { id: 'storage',  label: 'Storage',   icon: 'fa-solid fa-hard-drive' },
-            { id: 'network',  label: 'Network',   icon: 'fa-solid fa-ethernet' },
-            { id: 'power',    label: 'Power',     icon: 'fa-solid fa-plug' },
-            { id: 'sensors',  label: 'Sensors',   icon: 'fa-solid fa-thermometer-half' },
+            { id: 'overview', label: 'Overview',  icon: 'i-gauge' },
+            { id: 'hardware', label: 'Hardware',  icon: 'i-cpu' },
+            { id: 'storage',  label: 'Storage',   icon: 'i-hard-drive' },
+            { id: 'network',  label: 'Network',   icon: 'i-cable' },
+            { id: 'power',    label: 'Power',     icon: 'i-plug' },
+            { id: 'sensors',  label: 'Sensors',   icon: 'i-thermometer' },
           ];
           // Enable the KVM/Console tab for Cisco (legacy + Redfish) and Huawei
           if (['cimc', 'cimc_redfish', 'ibmc'].includes(this.selectedDevice?.adapter_type)) {
-            tabs.push({ id: 'kvm', label: 'Console', icon: 'fa-solid fa-display' });
+            tabs.push({ id: 'kvm', label: 'Console', icon: 'i-monitor' });
           }
           tabs.push(notif);
           return tabs;
         }
         if (this.isUps) return [
-          { id: 'overview', label: 'Overview', icon: 'fa-solid fa-gauge' },
-          { id: 'graphs',   label: 'Graphs',   icon: 'fa-solid fa-chart-line' },
-          { id: 'shutdown', label: 'Shutdown', icon: 'fa-solid fa-power-off' },
+          { id: 'overview', label: 'Overview', icon: 'i-gauge' },
+          { id: 'graphs',   label: 'Graphs',   icon: 'i-chart-line' },
+          { id: 'shutdown', label: 'Shutdown', icon: 'i-power' },
           notif,
         ];
-        return [{ id: 'overview', label: 'Overview', icon: 'fa-solid fa-gauge' }, notif];
+        return [{ id: 'overview', label: 'Overview', icon: 'i-gauge' }, notif];
+      },
+
+      setTheme(v) {
+        this.theme = v;
+        try { localStorage.setItem('hlm-theme', v); } catch (e) { /* private mode */ }
+        document.documentElement.className = (v === 'system' ? '' : v);
+        // Chart.js reads the tokens off the root element at render time, so an
+        // existing chart keeps the old theme's colours until it is rebuilt.
+        if (this.tab === 'graphs' && this.isUps) this.loadUpsHistory();
+      },
+
+      // A device modal that closes must not leave editingDevice pointing at the
+      // device it was opened for: anything that later falls back to it would act
+      // on the wrong record.
+      closeDeviceModal() { this.showDeviceModal = false; this.editingDevice = null; },
+
+      // Adapter types are identifiers, not labels. Title Case them for display
+      // rather than shouting CIMC_REDFISH at the user (§12).
+      adapterLabel(d) {
+        const a = d?.adapter_type || '';
+        return ({ snmp:'SNMP', dlink:'D-Link', hpe1820:'HPE 1820', cimc:'CIMC',
+                  cimc_redfish:'CIMC Redfish', redfish:'Redfish', ilo:'iLO',
+                  idrac:'iDRAC', ibmc:'iBMC', usbups:'USB UPS' })[a]
+               || (a ? a.charAt(0).toUpperCase() + a.slice(1) : '');
       },
 
       typeLabel(t) {
@@ -5271,10 +5331,10 @@
       },
 
       statusDot(d) {
-        if (!d.last_seen)       return 'bg-gray-600';
-        if (d.status_error)     return 'bg-red-500';
-        if (d.status?.online === false) return 'bg-red-500';
-        return 'bg-green-400';
+        if (!d.last_seen)       return 'dot-unknown';
+        if (d.status_error)     return 'dot-critical';
+        if (d.status?.online === false) return 'dot-critical';
+        return 'dot-good';
       },
 
       // Short identifier line shown under each device card on the dashboard.
@@ -5343,20 +5403,14 @@
         return [odd, even];
       },
 
-      portColor(p) {
-        if (p.operStatus === 1)        return 'bg-green-500/80 hover:bg-green-400 text-white';
-        if (p.adminStatus !== 1)       return 'bg-gray-700 hover:bg-gray-600 text-gray-400';
-        return 'bg-gray-600/60 hover:bg-gray-500 text-gray-300';
-      },
-
       portPoeDot(p) {
         const poe = this.poePortData(p.index);
         if (!poe) return '';
         switch (poe.detectionStatus) {
-          case 'delivering': return 'bg-yellow-400';
-          case 'searching':  return 'bg-yellow-600';
+          case 'delivering': return 'dot-caution';
+          case 'searching':  return 'dot-caution';
           case 'fault':
-          case 'otherFault': return 'bg-red-500';
+          case 'otherFault': return 'dot-critical';
           default:           return '';   // disabled / unknown → no dot
         }
       },
@@ -5418,13 +5472,13 @@
 
       poeStatus(portIndex) {
         const p = this.poePortData(portIndex);
-        return p ? p.detectionStatus : '-';
+        return p ? p.detectionStatus : null;
       },
 
       poeStatusColor(portIndex) {
         const p = this.poePortData(portIndex);
-        if (!p) return 'text-gray-600';
-        return { delivering: 'text-green-400', disabled: 'text-gray-500', searching: 'text-yellow-400', fault: 'text-red-400' }[p.detectionStatus] || 'text-gray-400';
+        if (!p) return '';
+        return { delivering: 'badge-good', searching: 'badge-caution', fault: 'badge-critical' }[p.detectionStatus] || '';
       },
 
       poeWatts(portIndex) {
@@ -5433,11 +5487,11 @@
       },
 
       poeStatusColor2(status) {
-        return { delivering: 'text-green-400', disabled: 'text-gray-500', searching: 'text-yellow-400', fault: 'text-red-400', otherFault: 'text-red-400' }[status] || 'text-gray-400';
+        return { delivering: 'badge-good', searching: 'badge-caution', fault: 'badge-critical', otherFault: 'badge-critical' }[status] || '';
       },
 
       fmtBytes(n) {
-        if (!n) return '-';
+        if (!n) return '–';
         if (n > 1e12) return (n/1e12).toFixed(1)+'T';
         if (n > 1e9)  return (n/1e9).toFixed(1)+'G';
         if (n > 1e6)  return (n/1e6).toFixed(1)+'M';
@@ -5447,9 +5501,19 @@
 
       // ── server helpers ────────────────────────────────────────────────────
       healthColor(h) {
-        return { OK:'text-green-400', Good:'text-green-400', Normal:'text-green-400',
-                 Warning:'text-yellow-400', Critical:'text-red-400', operational:'text-green-400',
-                 on:'text-green-400', operable:'text-green-400' }[h] || 'text-gray-400';
+        // Returns a BADGE modifier: every caller pairs it with class="badge".
+        // The empty string is the neutral badge, which is what an unknown
+        // health should look like. For a health rendered as text, use
+        // healthInk() instead: a badge modifier on bare text sets no padding.
+        return { OK:'badge-good', Good:'badge-good', Normal:'badge-good',
+                 Warning:'badge-caution', Critical:'badge-critical', operational:'badge-good',
+                 on:'badge-good', operable:'badge-good' }[h] || '';
+      },
+
+      healthInk(h) {
+        return { OK:'t-good', Good:'t-good', Normal:'t-good',
+                 Warning:'t-caution', Critical:'t-critical', operational:'t-good',
+                 on:'t-good', operable:'t-good' }[h] || 't-dim';
       },
 
       statusKV(s) {
