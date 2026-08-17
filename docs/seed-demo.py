@@ -1,0 +1,108 @@
+"""Seed a throwaway shots.db with believable demo devices.
+
+Feeds docs/shots.py so the README pictures show real-looking content
+rather than an empty install. Section 17.3 asks for real content, and the
+field names here match what the adapters actually return.
+
+Run from the repository root: python docs/seed-demo.py
+"""
+import pathlib as _pl, os as _os
+_os.chdir(str(_pl.Path(__file__).resolve().parent.parent))
+import os, json, datetime
+os.environ['DB_PATH'] = os.path.join(os.getcwd(), 'shots.db')
+os.environ['ADMIN_PASSWORD'] = 'smoketest123'
+from backend.database import init_db, SessionLocal
+from backend.models import Device, DeviceCache, DeviceMetric
+from backend.timeutil import utcnow
+init_db()
+db = SessionLocal()
+now = utcnow()
+
+def add(name, host, adapter, dtype, cache):
+    d = Device(name=name, hostname=host, adapter_type=adapter, device_type=dtype,
+               enabled=True, credentials={})
+    db.add(d); db.flush()
+    for k, v in cache.items():
+        db.add(DeviceCache(device_id=d.id, cache_key=k,
+                           data=json.dumps(v, default=str), error=None, updated_at=now))
+    return d
+
+ports = [{"index": i, "name": f"Port {i}", "alias": "", "operStatus": 1 if i % 3 else 2,
+          "adminStatus": 1, "speedMbps": 1000 if i % 3 else None, "combo": i > 44,
+          "rxBytes": 8123456789 * i, "txBytes": 4123456789 * i} for i in range(1, 49)]
+add("core-sw-01", "10.0.0.2", "dlink", "switch", {
+    "status": {"online": True, "sysName": "core-sw-01", "sysDescr": "D-Link DGS-3120-48PC",
+               "uptime": "42 days, 3:14", "firmware": "R4.00.B021", "ipOrigin": "manual"},
+    "ports": ports,
+    "poe": {"ports": [{"key": f"poe-{i}", "portIndex": i, "powerClass": 3 if i % 4 == 0 else None,
+                       "detectionStatus": "delivering" if i % 4 == 0 else "disabled",
+                       "powerWatts": 6.4 if i % 4 == 0 else None, "adminEnabled": True,
+                       "maxPowerMilliwatts": 30000} for i in range(1, 49)],
+            "totalPowerWatts": 370, "consumptionWatts": 76.8},
+    "connected": [{"mac": f"AC:DE:48:{i:02X}:1B:{i*3:02X}", "port": i,
+                   "vendor": ["Ubiquiti Inc", "Raspberry Pi Trading", "Intel Corporate", None][i % 4],
+                   "ip": f"10.0.0.{20+i}" if i % 5 == 0 else None} for i in range(1, 19)],
+})
+add("esxi-01", "10.0.0.20", "cimc_redfish", "server", {
+    "status": {"online": True, "model": "UCS C220 M4", "serial": "FCH1935V0KZ",
+               "power": "on", "health": "OK", "biosVersion": "C220M4.4.1.2c",
+               "bmcVersion": "4.1(2g)", "bmcIp": "10.0.0.21"},
+    "hardware": {"cpus": [{"model": "Intel Xeon E5-2650 v4", "cores": 12, "threads": 24,
+                           "maxSpeedMHz": 2900, "health": "OK"}] * 2,
+                 "memory": [{"id": f"DIMM_A{i}", "sizeGB": 32, "speedMHz": 2400,
+                             "type": "DDR4", "manufacturer": "Samsung",
+                             "serial": f"3A2F{i:04X}", "health": "OK"} for i in range(1, 9)],
+                 "pcie": [{"slot": "1", "model": "UCSC-MLOM-C10T-02", "vendor": "Cisco", "class": "Network"}]},
+    "storage": {"controllers": [{"name": "Cisco 12G SAS", "model": "UCSC-MRAID12G",
+                                 "firmware": "24.12.1-0205", "health": "OK"}],
+                "disks": [{"id": str(i), "model": "ST1200MM0088", "capacityGB": 1200,
+                           "type": "HDD", "interface": "SAS", "state": "online",
+                           "health": "OK", "serial": f"S4D0{i:03d}"} for i in range(1, 7)]},
+    "power": {"budget": {"consumedWatts": 214, "capacityWatts": 770},
+              "totalWatts": 208,
+              "supplies": [{"id": "1", "model": "UCSC-PSU2V2-1400W", "health": "OK",
+                            "inputWatts": 112, "lastOutputWatts": 99, "lineVoltage": 230,
+                            "firmware": "07.10", "serial": "DTM19340ABC"},
+                           {"id": "2", "model": "UCSC-PSU2V2-1400W", "health": "OK",
+                            "inputWatts": 108, "lastOutputWatts": 96, "lineVoltage": 230,
+                            "firmware": "07.10", "serial": "DTM19340DEF"}]},
+    "sensors": {"source": "redfish",
+                "temperatures": [{"name": n, "reading": v, "units": "Cel", "health": "OK"}
+                                 for n, v in [("PSU1_TEMP", 33.0), ("PSU2_TEMP", 32.0),
+                                              ("MB_TEMP_AMBIENT", 24.0), ("CPU1_TEMP", 48.0),
+                                              ("CPU2_TEMP", 46.0), ("DIMM_A1_TEMP", 35.0)]],
+                "fans": [{"name": f"FAN{i}_TACH", "reading": 8800 + i*40, "units": "RPM",
+                          "health": "OK"} for i in range(1, 7)],
+                "voltages": [{"name": "P12V", "reading": 12.096, "units": "V", "health": "OK"},
+                             {"name": "P5V", "reading": 5.02, "units": "V", "health": "OK"},
+                             {"name": "P3V3", "reading": 3.312, "units": "V", "health": "OK"}]},
+    "network": {"adapters": [{"name": "MLOM", "model": "UCSC-MLOM-C10T-02", "health": "OK",
+                              "interfaces": [{"name": "eth0", "mac": "00:2A:6A:11:22:33",
+                                              "linkState": "up", "speedMbps": 10000}]}]},
+})
+ups = add("apc-rack", "usb", "usbups", "ups", {
+    "status": {"online": True, "state": "online", "charge_pct": 100.0,
+               "runtime_sec": 2820, "load_pct": 41.0, "watts": 541.2,
+               "input_voltage": 232.0, "nominal_voltage": 230.0,
+               "flags": {"ac_present": True, "charging": False, "discharging": False}},
+    "metrics": {"load_pct": 41.0, "watts": 541.2, "charge_pct": 100.0,
+                "runtime_sec": 2820, "input_voltage": 232.0},
+})
+add("edge-sw-02", "10.0.0.3", "hpe1820", "switch",
+    {"status": {"online": False}, "ports": []})
+
+import math, random
+random.seed(7)
+for h in range(24 * 60 // 5):
+    ts = now - datetime.timedelta(minutes=5 * h)
+    if 150 < h < 165:      # a real outage: the gap must show as empty space
+        continue
+    ph = h / 22.0
+    for metric, val in [("load_pct", 41 + 9 * math.sin(ph) + random.uniform(-1.5, 1.5)),
+                        ("watts", 541 + 118 * math.sin(ph) + random.uniform(-18, 18)),
+                        ("charge_pct", 100 if h > 170 or h < 140 else 74 + h % 9),
+                        ("runtime_sec", 2820 if h > 170 or h < 140 else 1500 + h),
+                        ("input_voltage", 232 + random.uniform(-3, 3))]:
+        db.add(DeviceMetric(device_id=ups.id, metric=metric, value=round(val, 2), ts=ts))
+db.commit()
+print("seeded:", db.query(Device).count(), "devices,", db.query(DeviceMetric).count(), "metric samples")
