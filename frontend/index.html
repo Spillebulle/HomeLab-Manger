@@ -1127,153 +1127,175 @@
             <!-- ── Ports ── -->
             <template x-if="tab === 'ports'">
               <div>
-                <div class="flex items-center justify-between mb-4">
-                  <div>
-                    <span class="text-sm text-gray-400" x-text="portSummary"></span>
+                <!-- Front-panel visual. A port is a neutral tile with a state dot,
+                     never a colour fill: see STYLE-GUIDE §15.7. -->
+                <div x-show="(detail.ports || []).length" class="panel mb-3">
+                  <div class="panel-head">
+                    <span class="title">Front panel</span>
+                    <span class="t-tiny" x-text="portSummary"></span>
                   </div>
-                  <input x-model="portFilter" placeholder="Filter ports…"
-                         class="bg-card border border-border rounded px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 w-48 focus:outline-none focus:border-blue-500">
-                </div>
-
-                <!-- Front-panel visual -->
-                <div x-show="(detail.ports || []).length" class="bg-card border border-border rounded-lg p-3 mb-4 overflow-x-auto">
-                  <div class="inline-flex flex-col gap-1">
-                    <template x-for="(row, rowIdx) in panelRows" :key="rowIdx">
-                      <div class="flex gap-1">
-                        <template x-for="p in row" :key="p.index">
-                          <button @click="selectPort(p.index)"
-                                  :title="portTooltip(p)"
-                                  :class="[portColor(p), selectedPort === String(p.index) ? 'ring-2 ring-blue-400' : '', p.combo ? 'border-b-2 border-yellow-400' : '']"
-                                  class="relative w-8 h-8 rounded text-[10px] font-mono flex items-center justify-center transition-colors shrink-0">
-                            <span x-text="p.index"></span>
-                            <span x-show="portPoeDot(p)"
-                                  :class="portPoeDot(p)"
-                                  class="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full"></span>
-                          </button>
+                  <div class="panel-body">
+                    <div class="overflow-x-auto">
+                      <div class="inline-flex flex-col gap-1">
+                        <template x-for="(row, rowIdx) in panelRows" :key="rowIdx">
+                          <div class="flex gap-1">
+                            <template x-for="p in row" :key="p.index">
+                              <button @click="selectPort(p.index)"
+                                      :title="portTooltip(p)"
+                                      :style="`background: var(--control); border-radius: 3px; border: 1px solid ${selectedPort === String(p.index) ? 'var(--accent)' : 'var(--line)'}; box-shadow: ${[selectedPort === String(p.index) ? 'inset 0 0 0 1px var(--accent)' : '', p.combo ? 'inset 0 -2px 0 var(--caution)' : ''].filter(Boolean).join(', ') || 'none'};`"
+                                      class="relative flex flex-col items-center justify-center gap-0.5 w-8 h-8 shrink-0">
+                                <span class="figure"
+                                      :style="`font-size: var(--text-tiny); line-height: 1;${p.adminStatus === 1 ? '' : ' color: var(--text-dim);'}`"
+                                      x-text="p.index"></span>
+                                <span class="dot" :class="p.operStatus === 1 ? 'dot-good' : 'dot-unknown'"></span>
+                                <span x-show="portPoeDot(p)"
+                                      :class="({delivering: 'dot-caution', searching: 'dot-caution', fault: 'dot-critical', otherFault: 'dot-critical'})[poePortData(p.index)?.detectionStatus] || 'dot-unknown'"
+                                      class="dot absolute top-0.5 right-0.5"
+                                      style="width: 4px; height: 4px;"></span>
+                              </button>
+                            </template>
+                          </div>
                         </template>
                       </div>
-                    </template>
-                  </div>
-                  <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-gray-500">
-                    <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-green-500/80"></span>Up</span>
-                    <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-gray-600/60"></span>Down (admin up)</span>
-                    <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-gray-700"></span>Disabled</span>
-                    <span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-gray-600/60 border-b-2 border-yellow-400"></span>Combo</span>
-                    <span class="inline-flex items-center gap-1"><span class="relative w-3 h-3 rounded bg-gray-600/60"><span class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-yellow-400"></span></span>PoE delivering</span>
-                    <span class="inline-flex items-center gap-1"><span class="relative w-3 h-3 rounded bg-gray-600/60"><span class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-red-500"></span></span>PoE fault</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 t-tiny">
+                      <span class="inline-flex items-center gap-1"><span class="dot dot-good"></span>Link up</span>
+                      <span class="inline-flex items-center gap-1"><span class="dot dot-unknown"></span>Link down</span>
+                      <span class="inline-flex items-center gap-1"><span class="dot dot-caution" style="width: 4px; height: 4px;"></span>PoE delivering</span>
+                      <span class="inline-flex items-center gap-1"><span class="dot dot-critical" style="width: 4px; height: 4px;"></span>PoE fault</span>
+                      <span class="inline-flex items-center gap-1"><span class="inline-block w-4 h-4" style="background: var(--control); border: 1px solid var(--line); border-radius: 3px; box-shadow: inset 0 -2px 0 var(--caution);"></span>Combo port</span>
+                      <span class="inline-flex items-center gap-1"><span class="inline-block w-4 h-4" style="background: var(--control); border: 1px solid var(--accent); border-radius: 3px; box-shadow: inset 0 0 0 1px var(--accent);"></span>Selected</span>
+                    </div>
+                    <p class="t-tiny mt-1">A dimmed port number means the port is administratively down.</p>
                   </div>
                 </div>
 
-
-                <div class="overflow-x-auto">
-                  <table class="w-full text-sm">
-                    <thead>
-                      <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-border">
-                        <th class="text-left pb-2 pr-4">Port</th>
-                        <th class="text-left pb-2 pr-4">Name / Alias</th>
-                        <th class="text-left pb-2 pr-4">Untagged</th>
-                        <th class="text-left pb-2 pr-4">Tagged</th>
-                        <th class="text-left pb-2 pr-4">Admin</th>
-                        <th class="text-left pb-2 pr-4">Link</th>
-                        <th class="text-left pb-2 pr-4">Connected</th>
-                        <th class="text-right pb-2 pr-4">Speed</th>
-                        <th class="text-right pb-2 pr-4">RX</th>
-                        <th class="text-right pb-2 pr-4">TX</th>
-                        <th class="text-left pb-2 pr-4">PoE</th>
-                        <th class="text-right pb-2 pr-4">PoE W</th>
-                        <th class="text-right pb-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="p in filteredPorts" :key="p.index">
-                        <tr :data-port-row="p.index"
-                            @click="selectPort(p.index)"
-                            :class="selectedPort === String(p.index) ? 'bg-blue-500/15 ring-1 ring-blue-500/40' : 'hover:bg-card/50'"
-                            class="border-b border-border/50 cursor-pointer">
-                          <td class="py-2 pr-4 font-mono text-xs text-gray-400" x-text="p.index"></td>
-                          <td class="py-2 pr-4">
-                            <div class="flex items-center gap-2">
-                              <div class="text-white font-medium" x-text="p.name"></div>
-                              <span x-show="p.combo"
-                                    class="text-[10px] uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30 rounded px-1.5 py-0.5"
-                                    title="Combo port - RJ45 jack and SFP cage share this port number">Combo</span>
-                            </div>
-                            <div x-show="p.alias" class="text-xs text-gray-500" x-text="p.alias"></div>
-                          </td>
-                          <td class="py-2 pr-4">
-                            <template x-if="untaggedVlanForPort(p.index)">
-                              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-green-500/15 text-green-200 border border-green-500/30"
-                                    :title="untaggedVlanForPort(p.index).name">
-                                <span x-text="untaggedVlanForPort(p.index).vid"></span>
-                                <span class="text-green-400/70" x-text="untaggedVlanForPort(p.index).name"></span>
-                              </span>
-                            </template>
-                            <template x-if="!untaggedVlanForPort(p.index)">
-                              <span class="text-gray-600 text-xs">-</span>
-                            </template>
-                          </td>
-                          <td class="py-2 pr-4">
-                            <div class="flex flex-wrap gap-1 max-w-[160px]">
-                              <template x-for="v in taggedVlansForPort(p.index)" :key="v.vid">
-                                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/15 text-blue-200 border border-blue-500/30"
-                                      :title="v.name"
-                                      x-text="v.vid"></span>
+                <div class="panel">
+                  <div class="panel-head">
+                    <span class="title">Ports</span>
+                    <span class="count" x-text="filteredPorts.length"></span>
+                    <div class="actions">
+                      <div class="search w-48">
+                        <svg class="icon search-icon"><use href="#i-search"/></svg>
+                        <input x-model="portFilter" placeholder="Filter ports…" class="input">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="panel-body flush tbl-wrap">
+                    <table class="tbl">
+                      <thead>
+                        <tr>
+                          <th>Port</th>
+                          <th>Name / alias</th>
+                          <th>Untagged</th>
+                          <th>Tagged</th>
+                          <th>Admin</th>
+                          <th>Link</th>
+                          <th>Connected</th>
+                          <th class="num">Speed</th>
+                          <th class="num">RX</th>
+                          <th class="num">TX</th>
+                          <th>PoE</th>
+                          <th class="num">PoE W</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <template x-for="p in filteredPorts" :key="p.index">
+                          <tr :data-port-row="p.index"
+                              @click="selectPort(p.index)"
+                              :class="selectedPort === String(p.index) ? 'is-selected' : ''"
+                              class="is-clickable">
+                            <td><span class="figure" x-text="p.index"></span></td>
+                            <td>
+                              <div class="flex items-center gap-2 min-w-0">
+                                <span class="t-strong truncate" x-text="p.name"></span>
+                                <span x-show="p.combo" class="badge shrink-0"
+                                      title="Combo port. The RJ45 jack and the SFP cage share this port number.">Combo</span>
+                              </div>
+                              <div x-show="p.alias" class="t-tiny truncate" x-text="p.alias"></div>
+                            </td>
+                            <td>
+                              <template x-if="untaggedVlanForPort(p.index)">
+                                <span class="badge badge-good" :title="untaggedVlanForPort(p.index).name">
+                                  <span class="figure" style="color: inherit; font-size: inherit;" x-text="untaggedVlanForPort(p.index).vid"></span>
+                                  <span class="truncate max-w-[80px]" x-text="untaggedVlanForPort(p.index).name"></span>
+                                </span>
                               </template>
-                              <template x-if="taggedVlansForPort(p.index).length === 0">
-                                <span class="text-gray-600 text-xs">-</span>
+                              <template x-if="!untaggedVlanForPort(p.index)">
+                                <span class="t-dim">–</span>
                               </template>
-                            </div>
-                          </td>
-                          <td class="py-2 pr-4">
-                            <span :class="p.adminStatus === 1 ? 'text-green-400' : 'text-red-400'"
-                                  x-text="p.adminStatus === 1 ? 'Up' : 'Down'"></span>
-                          </td>
-                          <td class="py-2 pr-4">
-                            <span :class="p.operStatus === 1 ? 'text-green-400' : 'text-gray-500'"
-                                  x-text="p.operStatus === 1 ? 'Up' : 'Down'"></span>
-                          </td>
-                          <td class="py-2 pr-4">
-                            <template x-if="connectedSummary(p.index)">
-                              <button @click.stop="tab = 'connected'; selectedPort = String(p.index)"
-                                      class="text-xs text-blue-300 hover:text-blue-200 hover:underline truncate max-w-[140px] inline-block text-left"
-                                      :title="connectedForPort(p.index).map(c => `${c.mac}${c.ip ? ' · ' + c.ip : ''}${c.vendor ? ' · ' + c.vendor : ''}`).join('\n')"
-                                      x-text="connectedSummary(p.index)"></button>
-                            </template>
-                            <template x-if="!connectedSummary(p.index)">
-                              <span class="text-gray-600 text-xs">-</span>
-                            </template>
-                          </td>
-                          <td class="py-2 pr-4 text-right text-gray-400" x-text="p.speedMbps ? p.speedMbps + 'M' : '-'"></td>
-                          <td class="py-2 pr-4 text-right text-gray-400 font-mono text-xs" x-text="fmtBytes(p.inOctets)"></td>
-                          <td class="py-2 pr-4 text-right text-gray-400 font-mono text-xs" x-text="fmtBytes(p.outOctets)"></td>
-                          <td class="py-2 pr-4">
-                            <span x-text="poeStatus(p.index)" :class="poeStatusColor(p.index)" class="text-xs"></span>
-                          </td>
-                          <td class="py-2 pr-4 text-right font-mono text-xs"
-                              x-text="poeWatts(p.index) !== null ? poeWatts(p.index) + 'W' : '-'"></td>
-                          <td class="py-2 text-right" @click.stop>
-                            <div class="flex items-center justify-end gap-1">
-                              <button @click.stop="portAction(p.index, {type:'port_admin', enable: p.adminStatus !== 1})"
-                                      :title="p.adminStatus === 1 ? 'Disable port' : 'Enable port'"
-                                      class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded transition-colors"
-                                      x-text="p.adminStatus === 1 ? 'Disable' : 'Enable'">
-                              </button>
-                              <template x-if="['dlink','hpe1820'].includes(selectedDevice?.adapter_type) && poePortData(p.index)">
-                                <button @click.stop="portAction(p.index, {type:'port_poe', enable: poePortData(p.index)?.detectionStatus === 'disabled' || !poePortData(p.index)?.adminEnabled})"
-                                        :title="poePortData(p.index)?.adminEnabled ? 'Disable PoE' : 'Enable PoE'"
-                                        class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded transition-colors"
-                                        x-text="poePortData(p.index)?.adminEnabled ? 'PoE Off' : 'PoE On'">
+                            </td>
+                            <td>
+                              <div class="flex flex-wrap gap-1 max-w-[160px]">
+                                <template x-for="v in taggedVlansForPort(p.index)" :key="v.vid">
+                                  <span class="badge" :title="v.name">
+                                    <span class="figure" style="color: inherit; font-size: inherit;" x-text="v.vid"></span>
+                                  </span>
+                                </template>
+                                <template x-if="taggedVlansForPort(p.index).length === 0">
+                                  <span class="t-dim">–</span>
+                                </template>
+                              </div>
+                            </td>
+                            <td>
+                              <span class="badge" :class="p.adminStatus === 1 ? 'badge-good' : 'badge-caution'"
+                                    x-text="p.adminStatus === 1 ? 'Up' : 'Down'"></span>
+                            </td>
+                            <td>
+                              <span class="badge" :class="p.operStatus === 1 ? 'badge-good' : ''"
+                                    x-text="p.operStatus === 1 ? 'Up' : 'Down'"></span>
+                            </td>
+                            <td>
+                              <template x-if="connectedSummary(p.index)">
+                                <button @click.stop="tab = 'connected'; selectedPort = String(p.index)"
+                                        class="btn btn-ghost btn-sm truncate max-w-[140px]"
+                                        :title="connectedForPort(p.index).map(c => `${c.mac}${c.ip ? ' · ' + c.ip : ''}${c.vendor ? ' · ' + c.vendor : ''}`).join('\n')"
+                                        x-text="connectedSummary(p.index)"></button>
+                              </template>
+                              <template x-if="!connectedSummary(p.index)">
+                                <span class="t-dim">–</span>
+                              </template>
+                            </td>
+                            <td class="num figure" x-text="p.speedMbps ? p.speedMbps + 'M' : '-'"></td>
+                            <td class="num figure" x-text="fmtBytes(p.inOctets)"></td>
+                            <td class="num figure" x-text="fmtBytes(p.outOctets)"></td>
+                            <td>
+                              <span class="badge"
+                                    :class="({delivering: 'badge-good', searching: 'badge-caution', fault: 'badge-critical', otherFault: 'badge-critical'})[poeStatus(p.index)] || ''"
+                                    x-text="poeStatus(p.index)"></span>
+                            </td>
+                            <td class="num figure"
+                                x-text="poeWatts(p.index) !== null ? poeWatts(p.index) + 'W' : '-'"></td>
+                            <td @click.stop>
+                              <div class="flex items-center justify-end gap-1">
+                                <button @click.stop="portAction(p.index, {type:'port_admin', enable: p.adminStatus !== 1})"
+                                        :title="p.adminStatus === 1 ? 'Disable port' : 'Enable port'"
+                                        class="btn btn-sm"
+                                        x-text="p.adminStatus === 1 ? 'Disable' : 'Enable'">
                                 </button>
-                              </template>
+                                <template x-if="['dlink','hpe1820'].includes(selectedDevice?.adapter_type) && poePortData(p.index)">
+                                  <button @click.stop="portAction(p.index, {type:'port_poe', enable: poePortData(p.index)?.detectionStatus === 'disabled' || !poePortData(p.index)?.adminEnabled})"
+                                          :title="poePortData(p.index)?.adminEnabled ? 'Disable PoE' : 'Enable PoE'"
+                                          class="btn btn-sm"
+                                          x-text="poePortData(p.index)?.adminEnabled ? 'PoE Off' : 'PoE On'">
+                                  </button>
+                                </template>
+                              </div>
+                            </td>
+                          </tr>
+                        </template>
+                        <tr x-show="filteredPorts.length === 0">
+                          <td colspan="13">
+                            <div class="empty">
+                              <svg class="icon icon-24"><use href="#i-ethernet-port"/></svg>
+                              <span>No ports match that filter.</span>
                             </div>
                           </td>
                         </tr>
-                      </template>
-                      <tr x-show="filteredPorts.length === 0">
-                        <td colspan="13" class="py-8 text-center text-gray-500">No ports match filter.</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </template>
@@ -1281,112 +1303,147 @@
             <!-- ── Connected devices ── -->
             <template x-if="tab === 'connected'">
               <div>
-                <div class="flex items-center justify-between mb-4">
-                  <div class="text-sm text-gray-400">
-                    <span x-text="(detail.connected || []).length + ' MAC addresses learned'"></span>
-                    <span x-show="detail.connected_error" class="text-red-400 ml-2" x-text="'· ' + detail.connected_error"></span>
+                <div class="panel">
+                  <div class="panel-head">
+                    <span class="title">Connected devices</span>
+                    <span class="t-tiny" x-text="(detail.connected || []).length + ' MAC addresses learned'"></span>
+                    <div class="actions">
+                      <div class="search w-48">
+                        <svg class="icon search-icon"><use href="#i-search"/></svg>
+                        <input x-model="connectedFilter" placeholder="Filter…" class="input">
+                      </div>
+                    </div>
                   </div>
-                  <input x-model="connectedFilter" placeholder="Filter…"
-                         class="bg-card border border-border rounded px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 w-48 focus:outline-none focus:border-blue-500">
-                </div>
-
-                <div class="overflow-x-auto">
-                  <table class="w-full text-sm">
-                    <thead>
-                      <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-border">
-                        <th class="text-left pb-2 pr-4">Port</th>
-                        <th class="text-left pb-2 pr-4">MAC</th>
-                        <th class="text-left pb-2 pr-4">Vendor</th>
-                        <th class="text-left pb-2 pr-4">IP</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="c in filteredConnected" :key="c.mac + '@' + c.port_id">
-                        <tr :class="selectedPort === String(c.port_id) ? 'bg-blue-500/15 ring-1 ring-blue-500/40' : 'hover:bg-card/50'"
-                            class="border-b border-border/50">
-                          <td class="py-2 pr-4">
-                            <button @click="tab = 'ports'; selectPort(c.port_id)"
-                                    class="font-mono text-xs text-blue-300 hover:text-blue-200 hover:underline"
-                                    x-text="c.port_id"></button>
-                          </td>
-                          <td class="py-2 pr-4 font-mono text-xs text-gray-300" x-text="c.mac"></td>
-                          <td class="py-2 pr-4 text-gray-400" x-text="c.vendor || '-'"></td>
-                          <td class="py-2 pr-4 font-mono text-xs text-gray-400" x-text="c.ip || '-'"></td>
+                  <div x-show="detail.connected_error" class="panel-body">
+                    <div class="notice notice-critical">
+                      <svg class="icon"><use href="#i-triangle-alert"/></svg>
+                      <span x-text="'· ' + detail.connected_error"></span>
+                    </div>
+                  </div>
+                  <div class="panel-body flush tbl-wrap">
+                    <table class="tbl">
+                      <thead>
+                        <tr>
+                          <th>Port</th>
+                          <th>MAC</th>
+                          <th>Vendor</th>
+                          <th>IP</th>
                         </tr>
-                      </template>
-                      <tr x-show="filteredConnected.length === 0">
-                        <td colspan="4" class="py-8 text-center text-gray-500">
-                          <span x-show="!(detail.connected || []).length">Switch hasn't reported any connected devices yet.</span>
-                          <span x-show="(detail.connected || []).length">No entries match filter.</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        <template x-for="c in filteredConnected" :key="c.mac + '@' + c.port_id">
+                          <tr :class="selectedPort === String(c.port_id) ? 'is-selected' : ''">
+                            <td>
+                              <button @click="tab = 'ports'; selectPort(c.port_id)"
+                                      class="btn btn-ghost btn-sm"
+                                      style="font-family: var(--font-figure); font-variant-numeric: tabular-nums;"
+                                      title="Show this port in the ports table"
+                                      x-text="c.port_id"></button>
+                            </td>
+                            <td class="figure" x-text="c.mac"></td>
+                            <td x-text="c.vendor || '-'"></td>
+                            <td class="figure" x-text="c.ip || '-'"></td>
+                          </tr>
+                        </template>
+                        <tr x-show="filteredConnected.length === 0">
+                          <td colspan="4">
+                            <div class="empty">
+                              <svg class="icon icon-24"><use href="#i-network"/></svg>
+                              <span x-show="!(detail.connected || []).length">The switch has not reported any connected devices yet.</span>
+                              <span x-show="(detail.connected || []).length">No entries match that filter.</span>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
-                <p class="text-xs text-gray-500 mt-4 max-w-2xl">
-                  MAC and port are from the switch's forwarding table. IPs come from the switch's ARP table - typically only present for devices that have communicated with the switch's management IP, so don't expect every MAC to have one.
+                <p class="t-tiny mt-3 max-w-2xl">
+                  MAC and port come from the switch's forwarding table. IPs come from the switch's ARP table, which normally only holds devices that have talked to the switch's management IP, so not every MAC will have one.
                 </p>
               </div>
             </template>
 
-            <!-- ── PoE Summary ── -->
+            <!-- ── PoE summary ── -->
             <template x-if="tab === 'poe'">
               <div>
                 <template x-if="detail.poe">
                   <div>
-                    <!-- Summary cards -->
-                    <div class="grid grid-cols-3 gap-4 mb-6">
-                      <div class="bg-card border border-border rounded-lg p-4">
-                        <div class="text-xs text-gray-500 mb-1">Total Budget</div>
-                        <div class="text-2xl font-bold text-white" x-text="detail.poe.totalPowerWatts != null ? detail.poe.totalPowerWatts + ' W' : '-'"></div>
+                    <!-- Summary tiles -->
+                    <div class="tile-grid mb-3">
+                      <div class="tile">
+                        <div class="eyebrow">Total budget</div>
+                        <div class="tile-figure" x-text="detail.poe.totalPowerWatts != null ? detail.poe.totalPowerWatts + ' W' : '-'"></div>
+                        <div class="tile-sub">Chassis power budget.</div>
                       </div>
-                      <div class="bg-card border border-border rounded-lg p-4">
-                        <div class="text-xs text-gray-500 mb-1">Consumption</div>
-                        <div class="text-2xl font-bold text-blue-400" x-text="detail.poe.consumptionWatts != null ? detail.poe.consumptionWatts + ' W' : '-'"></div>
+                      <div class="tile">
+                        <div class="eyebrow">Consumption</div>
+                        <div class="tile-figure" x-text="detail.poe.consumptionWatts != null ? detail.poe.consumptionWatts + ' W' : '-'"></div>
+                        <template x-if="detail.poe.totalPowerWatts && detail.poe.consumptionWatts != null">
+                          <div class="mt-2">
+                            <div class="rail">
+                              <div class="fill"
+                                   :class="detail.poe.consumptionWatts / detail.poe.totalPowerWatts >= 0.9 ? 'is-critical' : (detail.poe.consumptionWatts / detail.poe.totalPowerWatts >= 0.75 ? 'is-caution' : '')"
+                                   :style="`width: ${Math.min(100, Math.round(detail.poe.consumptionWatts / detail.poe.totalPowerWatts * 100))}%`"></div>
+                            </div>
+                            <div class="tile-sub"><span class="figure" x-text="Math.min(100, Math.round(detail.poe.consumptionWatts / detail.poe.totalPowerWatts * 100))"></span>% of the budget in use.</div>
+                          </div>
+                        </template>
                       </div>
-                      <div class="bg-card border border-border rounded-lg p-4">
-                        <div class="text-xs text-gray-500 mb-1">Active Ports</div>
-                        <div class="text-2xl font-bold text-green-400" x-text="detail.poe.ports.filter(p => p.detectionStatus === 'delivering').length"></div>
+                      <div class="tile">
+                        <div class="eyebrow">Active ports</div>
+                        <div class="tile-figure" x-text="detail.poe.ports.filter(p => p.detectionStatus === 'delivering').length"></div>
+                        <div class="tile-sub">Ports delivering power.</div>
                       </div>
                     </div>
 
                     <!-- PoE port table -->
-                    <div class="overflow-x-auto">
-                      <table class="w-full text-sm">
-                        <thead>
-                          <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-border">
-                            <th class="text-left pb-2 pr-4">Port</th>
-                            <th class="text-left pb-2 pr-4">Admin</th>
-                            <th class="text-left pb-2 pr-4">Status</th>
-                            <th class="text-left pb-2 pr-4">Class</th>
-                            <th class="text-right pb-2 pr-4">Watts</th>
-                            <th class="text-right pb-2">Max W</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <template x-for="p in detail.poe.ports" :key="p.key">
-                            <tr class="border-b border-border/50">
-                              <td class="py-2 pr-4 font-mono text-xs text-gray-400" x-text="p.portIndex"></td>
-                              <td class="py-2 pr-4" :class="p.adminEnabled ? 'text-green-400' : 'text-gray-500'"
-                                  x-text="p.adminEnabled ? 'Enabled' : 'Disabled'"></td>
-                              <td class="py-2 pr-4" :class="poeStatusColor2(p.detectionStatus)"
-                                  x-text="p.detectionStatus"></td>
-                              <td class="py-2 pr-4 text-gray-400" x-text="p.powerClass != null ? 'Class ' + p.powerClass : '-'"></td>
-                              <td class="py-2 pr-4 text-right font-mono text-sm"
-                                  :class="p.powerWatts > 0 ? 'text-blue-300' : 'text-gray-500'"
-                                  x-text="p.powerWatts != null ? p.powerWatts : '-'"></td>
-                              <td class="py-2 text-right font-mono text-xs text-gray-500"
-                                  x-text="p.maxPowerMilliwatts != null ? (p.maxPowerMilliwatts/1000).toFixed(1) : '-'"></td>
+                    <div class="panel">
+                      <div class="panel-head">
+                        <span class="title">PoE ports</span>
+                        <span class="count" x-text="detail.poe.ports.length"></span>
+                      </div>
+                      <div class="panel-body flush tbl-wrap">
+                        <table class="tbl">
+                          <thead>
+                            <tr>
+                              <th>Port</th>
+                              <th>Admin</th>
+                              <th>Status</th>
+                              <th>Class</th>
+                              <th class="num">Watts</th>
+                              <th class="num">Max W</th>
                             </tr>
-                          </template>
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            <template x-for="p in detail.poe.ports" :key="p.key">
+                              <tr>
+                                <td><span class="figure" x-text="p.portIndex"></span></td>
+                                <td>
+                                  <span class="badge" :class="p.adminEnabled ? 'badge-good' : ''"
+                                        x-text="p.adminEnabled ? 'Enabled' : 'Disabled'"></span>
+                                </td>
+                                <td>
+                                  <span class="badge"
+                                        :class="({delivering: 'badge-good', searching: 'badge-caution', fault: 'badge-critical', otherFault: 'badge-critical'})[p.detectionStatus] || ''"
+                                        x-text="p.detectionStatus"></span>
+                                </td>
+                                <td x-text="p.powerClass != null ? 'Class ' + p.powerClass : '-'"></td>
+                                <td class="num figure" x-text="p.powerWatts != null ? p.powerWatts : '-'"></td>
+                                <td class="num figure"
+                                    x-text="p.maxPowerMilliwatts != null ? (p.maxPowerMilliwatts/1000).toFixed(1) : '-'"></td>
+                              </tr>
+                            </template>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 </template>
-                <div x-show="!detail.poe" class="text-center text-gray-500 py-16">
-                  <i class="fa-solid fa-bolt text-3xl mb-2"></i><p>No PoE data. Try refreshing.</p>
+                <div x-show="!detail.poe" class="empty">
+                  <svg class="icon icon-24"><use href="#i-zap"/></svg>
+                  <span>No PoE data yet. Try refreshing.</span>
                 </div>
               </div>
             </template>
@@ -1395,101 +1452,117 @@
             <template x-if="tab === 'vlans'">
               <div>
                 <!-- Create VLAN inline form (stages a create) -->
-                <div class="bg-card border border-border rounded-lg p-4 mb-4 flex flex-wrap items-end gap-3">
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">VID</label>
-                    <input x-model="newVlan.vid" type="number" min="2" max="4094" placeholder="e.g. 100"
-                           class="input w-24">
+                <div class="panel mb-3">
+                  <div class="panel-head">
+                    <span class="title">New VLAN</span>
+                    <div class="actions">
+                      <span class="t-tiny">Edits stage until you press <span class="t-strong">Save</span>. Click a name to rename it.</span>
+                    </div>
                   </div>
-                  <div>
-                    <label class="block text-xs text-gray-500 mb-1">Name</label>
-                    <input x-model="newVlan.name" placeholder="e.g. office" maxlength="32"
-                           class="input w-48">
-                  </div>
-                  <button @click="createVlan()"
-                          class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 rounded transition-colors">
-                    <i class="fa-solid fa-plus mr-1"></i>Create VLAN
-                  </button>
-                  <div class="text-xs text-gray-500 ml-auto">
-                    Edits stage until you click <span class="text-yellow-300">Save</span>. Click name to rename.
+                  <div class="panel-body">
+                    <div class="flex flex-wrap items-end gap-3">
+                      <div>
+                        <label class="field-label">VID</label>
+                        <input x-model="newVlan.vid" type="number" min="2" max="4094" placeholder="e.g. 100"
+                               class="input w-24">
+                      </div>
+                      <div>
+                        <label class="field-label">Name</label>
+                        <input x-model="newVlan.name" placeholder="e.g. office" maxlength="32"
+                               class="input w-48">
+                      </div>
+                      <button @click="createVlan()" class="btn btn-primary">
+                        <svg class="icon"><use href="#i-plus"/></svg>Create VLAN
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <!-- VLAN summary table -->
-                <div class="overflow-x-auto mb-4">
-                  <table class="w-full text-sm">
-                    <thead>
-                      <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-border">
-                        <th class="text-left pb-2 pr-4">VID</th>
-                        <th class="text-left pb-2 pr-4">Name</th>
-                        <th class="text-left pb-2 pr-4">Type</th>
-                        <th class="text-right pb-2 pr-4">Tagged</th>
-                        <th class="text-right pb-2 pr-4">Untagged</th>
-                        <th class="text-right pb-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="v in vlanTableList" :key="v.vid">
-                        <tr class="border-b border-border/50"
-                            :class="{
-                              'opacity-50 line-through': v._pendingDelete,
-                              'bg-green-500/5': v._pendingCreate,
-                            }">
-                          <td class="py-2 pr-4 font-mono text-xs text-gray-300">
-                            <span x-text="v.vid"></span>
-                            <template x-if="v._pendingCreate">
-                              <span class="ml-1 text-[10px] uppercase tracking-wider bg-green-500/15 text-green-300 border border-green-500/30 rounded px-1 py-0.5 no-underline">new</span>
-                            </template>
-                            <template x-if="v._pendingDelete">
-                              <span class="ml-1 text-[10px] uppercase tracking-wider bg-red-500/15 text-red-300 border border-red-500/30 rounded px-1 py-0.5 no-underline">del</span>
-                            </template>
-                          </td>
-                          <td class="py-2 pr-4">
-                            <input type="text"
-                                   :value="effectiveVlanName(v)"
-                                   @change="v._pendingCreate ? (pendingVlanCreates[v.vid] = $event.target.value.trim()) : stageVlanRename(v.vid, $event.target.value)"
-                                   :disabled="v._pendingDelete"
-                                   :class="v._pendingRename ? 'ring-2 ring-yellow-400' : ''"
-                                   class="bg-transparent border border-transparent hover:border-border/60 focus:border-blue-500 focus:bg-bg rounded px-1.5 py-0.5 text-white text-sm w-40 focus:outline-none disabled:cursor-not-allowed disabled:hover:border-transparent">
-                          </td>
-                          <td class="py-2 pr-4 text-gray-500 text-xs" x-text="v.type"></td>
-                          <td class="py-2 pr-4 text-right text-blue-300 font-mono" x-text="v.tagged.length"></td>
-                          <td class="py-2 pr-4 text-right text-green-300 font-mono" x-text="v.untagged.length"></td>
-                          <td class="py-2 text-right no-underline">
-                            <template x-if="v._pendingCreate">
-                              <button @click="unstageVlanCreate(v.vid)" title="Cancel pending create"
-                                      class="text-xs px-2 py-1 rounded text-gray-400 hover:text-gray-200 transition-colors">
-                                <i class="fa-solid fa-xmark"></i>
-                              </button>
-                            </template>
-                            <template x-if="!v._pendingCreate && v._pendingDelete">
-                              <button @click="unstageVlanDelete(v.vid)" title="Restore (cancel pending delete)"
-                                      class="text-xs px-2 py-1 rounded text-gray-400 hover:text-gray-200 transition-colors">
-                                <i class="fa-solid fa-rotate-left"></i>
-                              </button>
-                            </template>
-                            <template x-if="!v._pendingCreate && !v._pendingDelete">
-                              <button @click="deleteVlan(v.vid)"
-                                      :disabled="v.vid === 1"
-                                      :class="v.vid === 1 ? 'text-gray-600 cursor-not-allowed' : 'text-red-400 hover:text-red-300'"
-                                      :title="v.vid === 1 ? 'Cannot delete the default VLAN' : 'Delete VLAN'"
-                                      class="text-xs px-2 py-1 rounded transition-colors">
-                                <i class="fa-solid fa-trash"></i>
-                              </button>
-                            </template>
+                <div class="panel mb-3">
+                  <div class="panel-head">
+                    <span class="title">VLANs</span>
+                    <span class="count" x-text="vlanTableList.length"></span>
+                  </div>
+                  <div class="panel-body flush tbl-wrap">
+                    <table class="tbl">
+                      <thead>
+                        <tr>
+                          <th>VID</th>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th class="num">Tagged</th>
+                          <th class="num">Untagged</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <template x-for="v in vlanTableList" :key="v.vid">
+                          <tr :class="{ 'line-through': v._pendingDelete }">
+                            <td>
+                              <div class="flex items-center gap-2">
+                                <span class="figure" x-text="v.vid"></span>
+                                <template x-if="v._pendingCreate">
+                                  <span class="badge badge-good no-underline">New</span>
+                                </template>
+                                <template x-if="v._pendingDelete">
+                                  <span class="badge badge-critical no-underline">Staged for delete</span>
+                                </template>
+                              </div>
+                            </td>
+                            <td>
+                              <input type="text"
+                                     :value="effectiveVlanName(v)"
+                                     @change="v._pendingCreate ? (pendingVlanCreates[v.vid] = $event.target.value.trim()) : stageVlanRename(v.vid, $event.target.value)"
+                                     :disabled="v._pendingDelete"
+                                     :style="v._pendingRename ? 'border-color: var(--caution);' : ''"
+                                     class="input w-40">
+                            </td>
+                            <td class="t-tiny" x-text="v.type"></td>
+                            <td class="num figure" x-text="v.tagged.length"></td>
+                            <td class="num figure" x-text="v.untagged.length"></td>
+                            <td class="no-underline">
+                              <div class="flex items-center justify-end gap-1">
+                                <template x-if="v._pendingCreate">
+                                  <button @click="unstageVlanCreate(v.vid)" title="Cancel pending create"
+                                          class="btn-icon">
+                                    <svg class="icon"><use href="#i-x"/></svg>
+                                  </button>
+                                </template>
+                                <template x-if="!v._pendingCreate && v._pendingDelete">
+                                  <button @click="unstageVlanDelete(v.vid)" title="Restore (cancel pending delete)"
+                                          class="btn-icon">
+                                    <svg class="icon"><use href="#i-rotate-ccw"/></svg>
+                                  </button>
+                                </template>
+                                <template x-if="!v._pendingCreate && !v._pendingDelete">
+                                  <button @click="deleteVlan(v.vid)"
+                                          :disabled="v.vid === 1"
+                                          :title="v.vid === 1 ? 'Cannot delete the default VLAN' : 'Delete VLAN'"
+                                          class="btn-icon is-danger">
+                                    <svg class="icon"><use href="#i-trash-2"/></svg>
+                                  </button>
+                                </template>
+                              </div>
+                            </td>
+                          </tr>
+                        </template>
+                        <tr x-show="vlanTableList.length === 0">
+                          <td colspan="6">
+                            <div class="empty">
+                              <svg class="icon icon-24"><use href="#i-layers"/></svg>
+                              <span>No VLAN data yet. Try refreshing.</span>
+                            </div>
                           </td>
                         </tr>
-                      </template>
-                      <tr x-show="vlanTableList.length === 0">
-                        <td colspan="6" class="py-8 text-center text-gray-500">No VLAN data. Try refreshing.</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
-                <div class="text-xs text-gray-500 italic">
-                  Tip: open the <span class="text-blue-300">Ports</span> tab and click a port to set its tagged / untagged VLAN membership.
-                </div>
+                <p class="t-tiny">
+                  Open the <span class="t-strong">Ports</span> tab and click a port to set its tagged and untagged VLAN membership.
+                </p>
               </div>
             </template>
 
