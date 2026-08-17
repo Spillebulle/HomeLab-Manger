@@ -1,0 +1,265 @@
+/*
+ * House design tokens — HomeLab Manger.
+ *
+ * Vendored from ../../Design-Principles/tokens.css. Do not edit the neutral
+ * ladder, the type scale or the sizes here: they are the family's and a change
+ * belongs upstream. The only project-local part is the accent block below.
+ *
+ * Three theme states, structurally:
+ *   bare :root                                   dark   (the default)
+ *   @media (prefers-color-scheme: light) guarded system light
+ *   .light / [data-theme="light"]                forced light
+ * A token must appear in the dark block AND BOTH light blocks. One defined only
+ * under the media query breaks forced-light, and vice versa. Components never
+ * read the class.
+ *
+ * Never write a hex in a component. If a colour is missing, add the token here.
+ * See ../../Design-Principles/STYLE-GUIDE.md §2.
+ */
+
+:root {
+  /* ── The app's accent ───────────────────────────────────────────────────
+     HomeLab Manger is hue 255. The guide's stock recipe is
+     oklch(0.674 0.101 H); we raise L/C so --accent lands on exactly #3987E5,
+     the brand blue the logo is drawn in. Everything else still derives from
+     --accent / --accent-h, so the system is intact: this is two constants
+     changed, not a colour hard-coded into a component.
+
+     Measured against the surfaces it is drawn on (floor 3:1 for accent on
+     chrome, 4.5:1 for accent-ink on accent):
+       dark  accent on backdrop 5.30  window 5.15  dock 5.03  chrome 4.88  control 4.47
+       light accent on chrome   4.51  window 4.16  dock 4.28  control 3.98
+       accent-ink on accent     dark 5.15   light 4.90
+     ───────────────────────────────────────────────────────────────────── */
+  --accent-h: 255;
+  --accent-l: 0.622;   /* dark theme lightness  */
+  --accent-c: 0.161;   /* dark theme chroma     */
+
+  /* ── Type ──────────────────────────────────────────────────────────────── */
+  --font-ui: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-figure: ui-monospace, "Cascadia Mono", "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --text-heading: 13px;      /* panel titles, dialog titles */
+  --text-body:    12px;      /* running text */
+  --text-control: 11.5px;    /* button labels, row labels, list items */
+  --text-small:   11px;      /* menu items, secondary rows */
+  --text-tiny:    10.5px;    /* figures, status bar, chips, eyebrows */
+  --text-page:    15px;      /* a page/pane heading */
+  --text-display: 64px;      /* the wordmark, splash only */
+  --lh: 1.35;
+
+  /* ── Space & shape ─────────────────────────────────────────────────────── */
+  --s1: 4px;  --s2: 8px;  --s3: 12px;  --s4: 16px;  --s5: 24px;  --s6: 32px;
+  --r-tight: 3px;   /* keycaps, badges, the logo mark */
+  --r-ctl:   5px;   /* buttons, chips, swatches */
+  --r-tool:  6px;   /* tool buttons (32px), wells, inset previews */
+  --r-card:  8px;   /* cards, tiles, popovers, menus */
+  --r-modal: 10px;  /* dialogs, floating panels */
+
+  --hairline: 1px;
+  --dash: 5px; --dash-gap: 4px;   /* every dashed mark in the family */
+
+  /* ── Chrome heights ────────────────────────────────────────────────────── */
+  --h-menubar: 34px;   /* hosted top bar */
+  --h-tabstrip: 30px;
+  --h-toolbar: 36px;   /* options strip / toolbar */
+  --h-status: 26px;
+  --h-panelhead: 32px; /* panel header */
+  --h-row: 26px;       /* a list row with a picture */
+  --h-row-plain: 20px; /* a list row that is only text */
+  --h-dropdown: 18px;
+  --h-button: 26px;
+  --h-bottomnav: 52px;
+  --w-panel: 264px;
+  --w-sidebar: 240px;  /* the navigation column */
+  --w-toolrail: 100px;
+  --pad-strip: 12px;
+  --pad-panel: 12px;
+
+  /* ── Shadows: only things that float cast one ──────────────────────────── */
+  --shadow-menu:  0 8px 32px rgba(0,0,0,.6);
+  --shadow-float: 0 16px 48px rgba(0,0,0,.7);
+  --shadow-modal: 0 24px 64px rgba(0,0,0,.7);
+  --shadow-knob:  0 0 3px rgba(0,0,0,.8);
+
+  /* ── Motion ────────────────────────────────────────────────────────────── */
+  --t-hover: 80ms;
+  --t-open: 160ms;
+  --ease: cubic-bezier(.22,1,.36,1);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DARK — Graphite. The default.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, darkest to lightest. Cool grey, hue 264, chroma <= .008. */
+  --backdrop:        oklch(0.164 0.005 264);
+  --window:          oklch(0.182 0.004 264);
+  --dock:            oklch(0.195 0.004 264);
+  --chrome:          oklch(0.209 0.004 264);
+  --popover:         oklch(0.227 0.006 271);
+
+  /* Lines */
+  --line-soft:       oklch(0.243 0.006 258);
+  --line:            oklch(0.276 0.006 258);
+  --line-popover:    oklch(0.301 0.008 264);
+  --line-dashed:     oklch(0.359 0.010 261);
+
+  /* Controls */
+  --control:         oklch(0.244 0.006 271);
+  --control-hover:   oklch(0.276 0.006 258);
+  --control-active:  oklch(0.29 0.012 var(--accent-h));
+  --rail:            oklch(0.276 0.006 258);
+  --knob:            oklch(0.928 0.003 265);
+  --field:           var(--dock);
+
+  /* Text, four ranks. Never invent a fifth. */
+  --text-strong:     oklch(0.928 0.003 265);
+  --text:            oklch(0.841 0.005 258);
+  --text-muted:      oklch(0.695 0.008 261);
+  --text-dim:        oklch(0.622 0.008 261);
+  --placeholder:     oklch(0.481 0.009 261);
+
+  /* Accent */
+  --accent:          oklch(var(--accent-l) var(--accent-c) var(--accent-h));
+  --accent-dim:      oklch(0.447 0.097 var(--accent-h));
+  --accent-ink:      var(--window);
+  --accent-tint:     color-mix(in oklab, var(--accent) 7%, transparent);
+  --accent-ring:     color-mix(in oklab, var(--accent) 35%, transparent);
+
+  /* Semantic. Separate from the accent, used for STATE only. */
+  --caution:         oklch(0.693 0.096 38);
+  --caution-bg:      oklch(0.245 0.023 42);
+  --caution-line:    oklch(0.424 0.068 35);
+  --good:            oklch(0.70 0.10 145);
+  --good-bg:         oklch(0.245 0.025 145);
+  --good-line:       oklch(0.424 0.070 145);
+  --critical:        oklch(0.66 0.13 22);
+  --critical-bg:     oklch(0.245 0.03 22);
+  --critical-line:   oklch(0.424 0.090 22);
+
+  /* Categorical chart series. Never the accent as one of several. */
+  --series-1: #3F7BE8; --series-2: #46B04A; --series-3: #A96BE8;
+  --series-4: #1FB5B5; --series-5: #EE5AA8; --series-6: #F0D53C;
+  --grid:            var(--line-soft);
+  --area-alpha:      .14;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LIGHT — Paper. Warm greys, hue 82. Same ladder, same ranks.
+   The two blocks below are duplicates on purpose: one for the OS preference
+   when nothing is stamped, one for the forced choice.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: light) {
+  :root:not(.dark):not([data-theme="dark"]) {
+    color-scheme: light;
+    --backdrop:       oklch(0.908 0.010 82);
+    --window:         oklch(0.944 0.007 81);
+    --dock:           oklch(0.953 0.007 81);
+    --chrome:         oklch(0.971 0.006 85);
+    --popover:        #FFFFFF;
+    --line-soft:      oklch(0.915 0.008 82);
+    --line:           oklch(0.890 0.010 82);
+    --line-popover:   oklch(0.890 0.010 82);
+    --line-dashed:    oklch(0.80 0.012 82);
+    --control:        oklch(0.929 0.009 85);
+    --control-hover:  oklch(0.896 0.010 82);
+    --control-active: oklch(0.909 0.020 var(--accent-h));
+    --rail:           oklch(0.890 0.010 82);
+    --knob:           #FFFFFF;
+    --field:          #FFFFFF;
+    --text-strong:    oklch(0.342 0.004 68);
+    --text:           oklch(0.342 0.004 68);
+    --text-muted:     oklch(0.526 0.007 75);
+    --text-dim:       oklch(0.634 0.008 81);
+    --placeholder:    oklch(0.72 0.008 81);
+    --accent:         oklch(0.55 0.160 var(--accent-h));
+    --accent-dim:     oklch(0.79 0.058 var(--accent-h));
+    --accent-ink:     #FFFFFF;
+    --caution:        oklch(0.518 0.114 39);
+    --caution-bg:     oklch(0.943 0.018 49);
+    --caution-line:   oklch(0.832 0.042 51);
+    --good:           oklch(0.50 0.11 145);
+    --good-bg:        oklch(0.94 0.03 145);
+    --good-line:      oklch(0.83 0.05 145);
+    --critical:       oklch(0.50 0.14 22);
+    --critical-bg:    oklch(0.94 0.03 22);
+    --critical-line:  oklch(0.83 0.06 22);
+    --series-1: #2A5AB4; --series-2: #2E7C33; --series-3: #7742AE;
+    --series-4: #137F7F; --series-5: #B0326E; --series-6: #7E760A;
+    --shadow-menu:  0 8px 32px rgba(40,30,10,.18);
+    --shadow-float: 0 16px 48px rgba(40,30,10,.22);
+    --shadow-modal: 0 24px 64px rgba(40,30,10,.25);
+  }
+}
+:root.light, :root[data-theme="light"] {
+  color-scheme: light;
+  --backdrop:       oklch(0.908 0.010 82);
+  --window:         oklch(0.944 0.007 81);
+  --dock:           oklch(0.953 0.007 81);
+  --chrome:         oklch(0.971 0.006 85);
+  --popover:        #FFFFFF;
+  --line-soft:      oklch(0.915 0.008 82);
+  --line:           oklch(0.890 0.010 82);
+  --line-popover:   oklch(0.890 0.010 82);
+  --line-dashed:    oklch(0.80 0.012 82);
+  --control:        oklch(0.929 0.009 85);
+  --control-hover:  oklch(0.896 0.010 82);
+  --control-active: oklch(0.909 0.020 var(--accent-h));
+  --rail:           oklch(0.890 0.010 82);
+  --knob:           #FFFFFF;
+  --field:          #FFFFFF;
+  --text-strong:    oklch(0.342 0.004 68);
+  --text:           oklch(0.342 0.004 68);
+  --text-muted:     oklch(0.526 0.007 75);
+  --text-dim:       oklch(0.634 0.008 81);
+  --placeholder:    oklch(0.72 0.008 81);
+  --accent:         oklch(0.55 0.160 var(--accent-h));
+  --accent-dim:     oklch(0.79 0.058 var(--accent-h));
+  --accent-ink:     #FFFFFF;
+  --caution:        oklch(0.518 0.114 39);
+  --caution-bg:     oklch(0.943 0.018 49);
+  --caution-line:   oklch(0.832 0.042 51);
+  --good:           oklch(0.50 0.11 145);
+  --good-bg:        oklch(0.94 0.03 145);
+  --good-line:      oklch(0.83 0.05 145);
+  --critical:       oklch(0.50 0.14 22);
+  --critical-bg:    oklch(0.94 0.03 22);
+  --critical-line:  oklch(0.83 0.06 22);
+  --series-1: #2A5AB4; --series-2: #2E7C33; --series-3: #7742AE;
+  --series-4: #137F7F; --series-5: #B0326E; --series-6: #7E760A;
+  --shadow-menu:  0 8px 32px rgba(40,30,10,.18);
+  --shadow-float: 0 16px 48px rgba(40,30,10,.22);
+  --shadow-modal: 0 24px 64px rgba(40,30,10,.25);
+}
+
+/* ── The house typeface. Bundled, never a CDN. ────────────────────────────── */
+@font-face {
+  font-family: "Archivo";
+  src: url("/static/fonts/Archivo.ttf") format("truetype-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+html { background: var(--backdrop); }
+body {
+  margin: 0;
+  background: var(--backdrop);
+  color: var(--text);
+  font: var(--text-body)/var(--lh) var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+.figure, .num, .mono {
+  font-family: var(--font-figure);
+  font-variant-numeric: tabular-nums;
+}
+:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent-ring); border-radius: var(--r-ctl); }
+::placeholder { color: var(--placeholder); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--line-popover); border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
