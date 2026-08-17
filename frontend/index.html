@@ -2835,16 +2835,10 @@
        x-text="toast?.msg">
   </div>
 
-  <!-- ── Tailwind utilities for input / btn classes ────────────────────────── -->
-  <!-- type="text/tailwindcss" is required for the Play CDN to process @apply. -->
-  <style type="text/tailwindcss">
-    .label { @apply block text-xs text-gray-400 mb-1 }
-    .input  { @apply bg-card border border-border rounded px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500 }
-    .btn-primary   { @apply bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded transition-colors }
-    .btn-secondary { @apply bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm px-4 py-2 rounded transition-colors }
-    .btn-danger    { @apply bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded transition-colors }
-    .btn-action    { @apply text-white text-sm px-4 py-2 rounded transition-colors }
-  </style>
+  <!-- Component classes live in /static/app.css, drawn against the tokens.
+       There is deliberately no <style type="text/tailwindcss"> block here any
+       more: the Play CDN injects it after our stylesheet, so anything defined
+       in it silently overrode app.css. -->
 
   <script>
   function homelab() {

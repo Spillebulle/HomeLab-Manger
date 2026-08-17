@@ -470,6 +470,28 @@ select.input option { background: var(--popover); color: var(--text); }
    The canvas sits directly on its card: no inner border, no chart-area fill. */
 .chart { position: relative; width: 100%; }
 
+/* ══ Migration shims ════════════════════════════════════════════════════════
+   The old markup's class names, pointed at the new components so nothing
+   renders unstyled while the conversion is in flight. Do not use these in new
+   markup, and delete a shim once its last usage is gone. */
+.label { display: block; font-size: var(--text-control); color: var(--text); margin-bottom: var(--s1); }
+.btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  height: var(--h-button); padding: 0 var(--s3); border-radius: var(--r-ctl);
+  border: var(--hairline) solid transparent; background: var(--control); color: var(--text);
+  font: 400 var(--text-control)/1 var(--font-ui); cursor: pointer;
+  transition: background var(--t-hover), color var(--t-hover);
+}
+.btn-secondary:hover { background: var(--control-hover); color: var(--text-strong); }
+.btn-action {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  height: var(--h-button); padding: 0 var(--s3); border-radius: var(--r-ctl);
+  border: var(--hairline) solid transparent; background: var(--control); color: var(--text);
+  font: 400 var(--text-control)/1 var(--font-ui); cursor: pointer;
+  transition: background var(--t-hover), color var(--t-hover);
+}
+.btn-action:hover { background: var(--control-hover); color: var(--text-strong); }
+
 /* ══ Utilities ══════════════════════════════════════════════════════════════ */
 .hairline-t { border-top: var(--hairline) solid var(--line); }
 .hairline-b { border-bottom: var(--hairline) solid var(--line); }
