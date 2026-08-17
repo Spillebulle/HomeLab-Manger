@@ -37,7 +37,7 @@ is published for each release to both GitHub Container Registry and Docker Hub.
 # compose.yaml
 services:
   homelab-manger:
-    image: ghcr.io/spillebulle/homelab-manger:0.7.0
+    image: ghcr.io/spillebulle/homelab-manger:0.8.0
     ports:
       - "8080:8080"
     environment:
@@ -51,7 +51,7 @@ volumes:
 ```
 
 `docker compose up -d`, then open <http://localhost:8080> and sign in as
-`admin` with the password you set. `0.7.0` is the current release; `:latest`
+`admin` with the password you set. `0.8.0` is the current release; `:latest`
 also exists and moves with every release, so pin a version if you would rather
 choose when to upgrade.
 
@@ -62,7 +62,7 @@ without compose:
 docker run -d --name homelab-manger \
   -p 8080:8080 -e ADMIN_PASSWORD=pick-something \
   -v homelab-data:/data \
-  ghcr.io/spillebulle/homelab-manger:0.7.0
+  ghcr.io/spillebulle/homelab-manger:0.8.0
 ```
 
 **Monitoring a USB-connected UPS needs two extra flags**, `--privileged` and

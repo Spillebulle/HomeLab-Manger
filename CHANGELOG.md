@@ -3,6 +3,31 @@
 What changed in each release, newest first. Every version listed here has a
 matching `vX.Y.Z` tag and a published container image.
 
+## 0.8.0
+
+2026-08-17
+
+- The whole interface has been redesigned to one visual language: a shared
+  palette of cool greys with a single accent, a bundled typeface, a stroke icon
+  set, and a denser layout. Selection is a neutral fill with a small accent
+  mark, so the accent now only ever means selected, in hand, or primary.
+- Dark, light, or follow the system, remembered between visits. The light theme
+  is complete on every screen, not just the dashboard.
+- Themes are files. Import one, edit its colours, export it, and hand it to
+  somebody else. The `.umbertheme` format is shared with the other apps built to
+  the same design principles, so a theme moves between them unchanged. Graphite
+  and Paper ship built in and are read-only; your own live beside the database.
+- Charts redrawn to the same rules: a hairline grid, the single series in the
+  accent, and a real gap where polling stopped rather than a line drawn across
+  it.
+- Switch front panels show each port as a neutral tile with a state dot instead
+  of a full colour fill per port, so a glance reads link state without decoding
+  a wall of colour.
+- Font Awesome is gone. Icons and the typeface are now bundled rather than
+  fetched, though Tailwind, Alpine and Chart.js still load from a CDN.
+- The README, the docs and every screenshot have been rebuilt. Screenshots are
+  now generated from the running app, so they cannot quietly go stale.
+
 ## 0.7.0
 
 2026-06-27
