@@ -1570,11 +1570,11 @@
             <template x-if="tab === 'hardware'">
               <div x-data="{ hwTab: 'cpu' }">
                 <!-- sub-tabs -->
-                <div class="flex gap-4 mb-4 text-sm border-b border-border pb-2">
+                <div class="segmented mb-4">
                   <template x-for="ht in [{id:'cpu',label:'CPUs'},{id:'memory',label:'Memory'},{id:'pcie',label:'PCIe'}]" :key="ht.id">
                     <button @click="hwTab = ht.id"
-                            :class="hwTab === ht.id ? 'text-blue-400 border-b-2 border-blue-500 -mb-2.5' : 'text-gray-400 hover:text-gray-200'"
-                            x-text="ht.label" class="pb-1 transition-colors"></button>
+                            :class="hwTab === ht.id ? 'is-selected' : ''"
+                            x-text="ht.label"></button>
                   </template>
                 </div>
 
@@ -1582,17 +1582,28 @@
                 <template x-if="hwTab === 'cpu'">
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <template x-for="(cpu, i) in detail.hardware?.cpus ?? []" :key="i">
-                      <div class="bg-card border border-border rounded-lg p-4">
-                        <div class="font-semibold text-white mb-2">CPU <span x-text="cpu.id"></span></div>
-                        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                          <!-- Alpine x-for needs a single root child; `contents` lets the kv pair flow into the grid. -->
-                          <template x-for="kv in cpuKV(cpu)" :key="kv.k">
-                            <div class="contents">
-                              <div class="text-gray-500" x-text="kv.k"></div>
-                              <div class="text-gray-200" x-text="kv.v"></div>
-                            </div>
-                          </template>
+                      <div class="panel">
+                        <div class="panel-head">
+                          <svg class="icon icon-20 t-muted"><use href="#i-cpu"/></svg>
+                          <span class="title">CPU <span x-text="cpu.id"></span></span>
                         </div>
+                        <div class="panel-body">
+                          <dl class="kv">
+                            <!-- Alpine x-for needs a single root child; `contents` lets the kv pair flow into the grid. -->
+                            <template x-for="kv in cpuKV(cpu)" :key="kv.k">
+                              <div class="contents">
+                                <dt class="t-dim" x-text="kv.k"></dt>
+                                <dd class="t-control" :class="kv.num ? 'num' : ''" x-text="kv.v"></dd>
+                              </div>
+                            </template>
+                          </dl>
+                        </div>
+                      </div>
+                    </template>
+                    <template x-if="(detail.hardware?.cpus ?? []).length === 0">
+                      <div class="empty">
+                        <svg class="icon icon-24"><use href="#i-cpu"/></svg>
+                        <span>No processor data. Refresh the device to read it from the BMC.</span>
                       </div>
                     </template>
                   </div>
@@ -1600,62 +1611,96 @@
 
                 <!-- Memory -->
                 <template x-if="hwTab === 'memory'">
-                  <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                      <thead>
-                        <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-border">
-                          <th class="text-left pb-2 pr-4">Slot</th>
-                          <th class="text-left pb-2 pr-4">Location</th>
-                          <th class="text-right pb-2 pr-4">Size</th>
-                          <th class="text-right pb-2 pr-4">Speed</th>
-                          <th class="text-left pb-2 pr-4">Type</th>
-                          <th class="text-left pb-2">Serial</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <template x-for="(m, i) in detail.hardware?.memory ?? []" :key="i">
-                          <tr class="border-b border-border/50">
-                            <td class="py-2 pr-4 text-gray-400 font-mono text-xs" x-text="m.id || (i+1)"></td>
-                            <td class="py-2 pr-4" x-text="m.location || m.bank || '-'"></td>
-                            <td class="py-2 pr-4 text-right font-semibold text-blue-300" x-text="memSize(m)"></td>
-                            <td class="py-2 pr-4 text-right text-gray-400" x-text="(m.speedMHz || m.speed || m.speedMhz || '-') + (m.speedMHz || m.speed || m.speedMhz ? ' MHz' : '')"></td>
-                            <td class="py-2 pr-4 text-gray-400" x-text="m.type || m.memoryDeviceType || '-'"></td>
-                            <td class="py-2 font-mono text-xs text-gray-500" x-text="m.serial || '-'"></td>
-                          </tr>
-                        </template>
-                      </tbody>
-                    </table>
+                  <div class="panel">
+                    <div class="panel-head">
+                      <svg class="icon icon-20 t-muted"><use href="#i-memory-stick"/></svg>
+                      <span class="title">Memory</span>
+                      <span class="count" x-text="(detail.hardware?.memory ?? []).length"></span>
+                    </div>
+                    <div class="panel-body flush">
+                      <div class="tbl-wrap">
+                        <table class="tbl">
+                          <thead>
+                            <tr>
+                              <th>Slot</th>
+                              <th>Location</th>
+                              <th class="num">Size</th>
+                              <th class="num">Speed</th>
+                              <th>Type</th>
+                              <th>Serial</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <template x-for="(m, i) in detail.hardware?.memory ?? []" :key="i">
+                              <tr>
+                                <td class="figure" x-text="m.id || (i+1)"></td>
+                                <td x-text="m.location || m.bank || '-'"></td>
+                                <td class="num" x-text="memSize(m)"></td>
+                                <td class="num" x-text="(m.speedMHz || m.speed || m.speedMhz || '-') + (m.speedMHz || m.speed || m.speedMhz ? ' MHz' : '')"></td>
+                                <td class="t-muted" x-text="m.type || m.memoryDeviceType || '-'"></td>
+                                <td class="figure" x-text="m.serial || '-'"></td>
+                              </tr>
+                            </template>
+                            <tr x-show="(detail.hardware?.memory ?? []).length === 0">
+                              <td colspan="6">
+                                <div class="empty">
+                                  <svg class="icon icon-24"><use href="#i-memory-stick"/></svg>
+                                  <span>No memory data. Refresh the device to read it from the BMC.</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 </template>
 
                 <!-- PCIe -->
                 <template x-if="hwTab === 'pcie'">
                   <div>
-                    <div class="overflow-x-auto">
-                      <table class="w-full text-sm">
-                        <thead>
-                          <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-border">
-                            <th class="text-left pb-2 pr-4">Slot</th>
-                            <th class="text-left pb-2 pr-4">Model</th>
-                            <th class="text-left pb-2 pr-4">Vendor</th>
-                            <th class="text-left pb-2">Class</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <template x-for="(p, i) in detail.hardware?.pcie ?? []" :key="i">
-                            <tr class="border-b border-border/50">
-                              <td class="py-2 pr-4 text-gray-400 font-mono text-xs" x-text="p.id"></td>
-                              <td class="py-2 pr-4 text-white" x-text="p.model || '-'"></td>
-                              <td class="py-2 pr-4 text-gray-400" x-text="p.vendor || p.manufacturer || '-'"></td>
-                              <td class="py-2 text-gray-500 text-xs" x-text="p.class || p.pciClass || '-'"></td>
-                            </tr>
-                          </template>
-                        </tbody>
-                      </table>
+                    <div class="panel">
+                      <div class="panel-head">
+                        <svg class="icon icon-20 t-muted"><use href="#i-layers"/></svg>
+                        <span class="title">PCIe cards</span>
+                        <span class="count" x-text="(detail.hardware?.pcie ?? []).length"></span>
+                      </div>
+                      <div class="panel-body flush">
+                        <div class="tbl-wrap">
+                          <table class="tbl">
+                            <thead>
+                              <tr>
+                                <th>Slot</th>
+                                <th>Model</th>
+                                <th>Vendor</th>
+                                <th>Class</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <template x-for="(p, i) in detail.hardware?.pcie ?? []" :key="i">
+                                <tr>
+                                  <td class="figure" x-text="p.id"></td>
+                                  <td class="t-strong" x-text="p.model || '-'"></td>
+                                  <td class="t-muted" x-text="p.vendor || p.manufacturer || '-'"></td>
+                                  <td class="t-muted" x-text="p.class || p.pciClass || '-'"></td>
+                                </tr>
+                              </template>
+                              <tr x-show="(detail.hardware?.pcie ?? []).length === 0">
+                                <td colspan="4">
+                                  <div class="empty">
+                                    <svg class="icon icon-24"><use href="#i-layers"/></svg>
+                                    <span>No PCIe cards reported.</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
                     <p x-show="selectedDevice?.adapter_type === 'ibmc'"
-                       class="text-xs text-gray-500 mt-3 max-w-2xl">
-                      iBMC reports Huawei-branded PCIe cards only. Third-party NICs, HBAs, or accelerators (Intel, Mellanox, Broadcom, etc.) won't appear here - the BMC firmware doesn't introspect them.
+                       class="t-small t-dim mt-3 max-w-2xl">
+                      iBMC reports Huawei-branded PCIe cards only. Third-party NICs, HBAs and accelerators from Intel, Mellanox, Broadcom and others will not appear here, because the BMC firmware does not introspect them.
                     </p>
                   </div>
                 </template>
@@ -1668,14 +1713,24 @@
                 <!-- Controllers -->
                 <template x-if="(detail.storage?.controllers ?? []).length > 0">
                   <div class="mb-6">
-                    <h3 class="text-xs text-gray-500 uppercase tracking-wide mb-2">Controllers</h3>
-                    <div class="flex flex-wrap gap-3">
+                    <h3 class="eyebrow mb-2">Controllers</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <template x-for="(c, i) in detail.storage?.controllers ?? []" :key="i">
-                        <div class="bg-card border border-border rounded px-3 py-2 text-sm">
-                          <span class="text-white" x-text="c.model || c.name || ('Controller ' + (i+1))"></span>
-                          <span class="text-gray-500 ml-2 text-xs" x-text="c.type || c.raid || ''"></span>
-                          <span x-show="c.health" :class="healthColor(c.health)"
-                                class="ml-2 text-xs" x-text="c.health"></span>
+                        <div class="panel">
+                          <div class="panel-head">
+                            <svg class="icon icon-20 t-muted"><use href="#i-hard-drive"/></svg>
+                            <span class="title" x-text="c.model || c.name || ('Controller ' + (i+1))"></span>
+                            <div class="actions">
+                              <span x-show="c.health" class="badge" :class="healthColor(c.health)"
+                                    x-text="c.health"></span>
+                            </div>
+                          </div>
+                          <div class="panel-body">
+                            <dl class="kv">
+                              <dt class="t-dim">Type</dt>
+                              <dd class="t-control" x-text="c.type || c.raid || ''"></dd>
+                            </dl>
+                          </div>
                         </div>
                       </template>
                     </div>
@@ -1683,41 +1738,56 @@
                 </template>
 
                 <!-- Disks -->
-                <div class="overflow-x-auto">
-                  <table class="w-full text-sm">
-                    <thead>
-                      <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-border">
-                        <th class="text-left pb-2 pr-4">ID</th>
-                        <th class="text-left pb-2 pr-4">Model</th>
-                        <th class="text-left pb-2 pr-4">Interface</th>
-                        <th class="text-left pb-2 pr-4">Type</th>
-                        <th class="text-right pb-2 pr-4">Size</th>
-                        <th class="text-left pb-2 pr-4">State</th>
-                        <th class="text-left pb-2 pr-4">Health</th>
-                        <th class="text-left pb-2">Serial</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template x-for="(d, i) in detail.storage?.disks ?? []" :key="i">
-                        <tr class="border-b border-border/50 hover:bg-card/50">
-                          <td class="py-2 pr-4 font-mono text-xs text-gray-400" x-text="d.id || (i+1)"></td>
-                          <td class="py-2 pr-4 text-white" x-text="d.model || d.name || '-'"></td>
-                          <td class="py-2 pr-4 text-gray-400" x-text="d.interface || d.protocol || d.interfaceType || '-'"></td>
-                          <td class="py-2 pr-4">
-                            <span :class="d.mediaType === 'SSD' ? 'text-blue-400' : 'text-amber-400'"
-                                  x-text="d.mediaType || '-'"></span>
-                          </td>
-                          <td class="py-2 pr-4 text-right font-semibold" x-text="diskSize(d)"></td>
-                          <td class="py-2 pr-4 text-gray-400 text-xs" x-text="d.state || d.diskState || '-'"></td>
-                          <td class="py-2 pr-4 text-xs" :class="healthColor(d.health)" x-text="d.health || '-'"></td>
-                          <td class="py-2 font-mono text-xs text-gray-500" x-text="d.serial || d.serialNumber || '-'"></td>
-                        </tr>
-                      </template>
-                      <tr x-show="(detail.storage?.disks ?? []).length === 0">
-                        <td colspan="8" class="py-8 text-center text-gray-500">No disk data.</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div class="panel">
+                  <div class="panel-head">
+                    <svg class="icon icon-20 t-muted"><use href="#i-hard-drive"/></svg>
+                    <span class="title">Disks</span>
+                    <span class="count" x-text="(detail.storage?.disks ?? []).length"></span>
+                  </div>
+                  <div class="panel-body flush">
+                    <div class="tbl-wrap">
+                      <table class="tbl">
+                        <thead>
+                          <tr>
+                            <th>ID</th>
+                            <th>Model</th>
+                            <th>Interface</th>
+                            <th>Type</th>
+                            <th class="num">Size</th>
+                            <th>State</th>
+                            <th class="text-right">Health</th>
+                            <th>Serial</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="(d, i) in detail.storage?.disks ?? []" :key="i">
+                            <tr>
+                              <td class="figure" x-text="d.id || (i+1)"></td>
+                              <td class="t-strong" x-text="d.model || d.name || '-'"></td>
+                              <td class="t-muted" x-text="d.interface || d.protocol || d.interfaceType || '-'"></td>
+                              <td>
+                                <span class="badge" x-text="d.mediaType || '-'"></span>
+                              </td>
+                              <td class="num" x-text="diskSize(d)"></td>
+                              <td class="t-muted" x-text="d.state || d.diskState || '-'"></td>
+                              <td class="text-right">
+                                <span class="badge" :class="healthColor(d.health)" x-text="d.health || '-'"></span>
+                              </td>
+                              <td class="figure" x-text="d.serial || d.serialNumber || '-'"></td>
+                            </tr>
+                          </template>
+                          <tr x-show="(detail.storage?.disks ?? []).length === 0">
+                            <td colspan="8">
+                              <div class="empty">
+                                <svg class="icon icon-24"><use href="#i-hard-drive"/></svg>
+                                <span>No disk data. Refresh the device to read it from the controller.</span>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               </div>
             </template>
@@ -1725,66 +1795,84 @@
             <!-- ── Network (server) ── -->
             <template x-if="tab === 'network'">
               <div>
-                <h3 class="text-xs text-gray-500 uppercase tracking-wide mb-2">Network Interfaces</h3>
+                <h3 class="eyebrow mb-2">Network adapters</h3>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                   <template x-for="(a, i) in detail.network?.adapters ?? []" :key="i">
-                    <div class="bg-card border border-border rounded-lg p-4">
-                      
-                      <div class="flex items-center justify-between mb-2">
-                        <div class="flex items-center gap-2">
-                          <span class="w-2 h-2 rounded-full shrink-0" 
-                                :class="a.link === 'LinkUp' ? 'bg-green-400' : 'bg-gray-600'"></span>
-                          <span class="font-medium text-white" x-text="a.model || a.name || ('NIC ' + (i+1))"></span>
+                    <div class="panel">
+
+                      <div class="panel-head">
+                        <span class="dot" :class="a.link === 'LinkUp' ? 'dot-good' : 'dot-unknown'"></span>
+                        <span class="title" x-text="a.model || a.name || ('NIC ' + (i+1))"></span>
+                        <div class="actions">
+                          <span x-show="a.health" class="badge" :class="healthColor(a.health)" x-text="a.health"></span>
                         </div>
-                        <span x-show="a.health" :class="healthColor(a.health)" class="text-xs font-medium" x-text="a.health"></span>
                       </div>
 
-                      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-                        <template x-if="a.link">
-                          <div class="contents">
-                            <dt class="text-gray-500">State</dt>
-                            <dd :class="a.link === 'LinkUp' ? 'text-green-400' : 'text-gray-500'" 
-                                x-text="a.link === 'LinkUp' ? 'Connected' : 'Disconnected'"></dd>
-                          </div>
-                        </template>
+                      <div class="panel-body">
+                        <dl class="kv">
+                          <template x-if="a.link">
+                            <div class="contents">
+                              <dt class="t-dim">State</dt>
+                              <dd>
+                                <span class="badge" :class="a.link === 'LinkUp' ? 'badge-good' : ''"
+                                      x-text="a.link === 'LinkUp' ? 'Connected' : 'Disconnected'"></span>
+                              </dd>
+                            </div>
+                          </template>
 
-                        <template x-if="a.mac">
-                          <div class="contents">
-                            <dt class="text-gray-500">MAC</dt>
-                            <dd class="font-mono text-gray-300" x-text="a.mac"></dd>
-                          </div>
-                        </template>
-                        
-                        <template x-if="a.speed">
-                          <div class="contents">
-                            <dt class="text-gray-500">Speed</dt>
-                            <dd class="text-gray-300" x-text="a.speed + ' Mbps'"></dd>
-                          </div>
-                        </template>
-                      </dl>
-                      
+                          <template x-if="a.mac">
+                            <div class="contents">
+                              <dt class="t-dim">MAC</dt>
+                              <dd class="t-control num" x-text="a.mac"></dd>
+                            </div>
+                          </template>
+
+                          <template x-if="a.speed">
+                            <div class="contents">
+                              <dt class="t-dim">Speed</dt>
+                              <dd class="t-control num" x-text="a.speed + ' Mbps'"></dd>
+                            </div>
+                          </template>
+                        </dl>
+                      </div>
+
+                    </div>
+                  </template>
+                  <template x-if="(detail.network?.adapters ?? []).length === 0">
+                    <div class="empty">
+                      <svg class="icon icon-24"><use href="#i-network"/></svg>
+                      <span>No network adapters reported.</span>
                     </div>
                   </template>
                 </div>
-                
+
                 <template x-if="detail.network?.ports?.length">
-                  <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                      <thead>
-                        <tr class="text-xs text-gray-500 uppercase tracking-wide border-b border-border">
-                          <th class="text-left pb-2 pr-4">Port ID</th>
-                          <th class="text-left pb-2">MAC</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <template x-for="(p, i) in detail.network.ports" :key="i">
-                          <tr class="border-b border-border/50">
-                            <td class="py-2 pr-4 text-gray-400" x-text="p.id"></td>
-                            <td class="py-2 font-mono text-xs text-gray-300" x-text="p.mac || '-'"></td>
-                          </tr>
-                        </template>
-                      </tbody>
-                    </table>
+                  <div class="panel">
+                    <div class="panel-head">
+                      <svg class="icon icon-20 t-muted"><use href="#i-ethernet-port"/></svg>
+                      <span class="title">Ethernet interfaces</span>
+                      <span class="count" x-text="detail.network.ports.length"></span>
+                    </div>
+                    <div class="panel-body flush">
+                      <div class="tbl-wrap">
+                        <table class="tbl">
+                          <thead>
+                            <tr>
+                              <th>Port ID</th>
+                              <th>MAC</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <template x-for="(p, i) in detail.network.ports" :key="i">
+                              <tr>
+                                <td class="t-muted" x-text="p.id"></td>
+                                <td class="figure" x-text="p.mac || '-'"></td>
+                              </tr>
+                            </template>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 </template>
               </div>
@@ -1796,86 +1884,108 @@
                   <div>
                     <!-- Budget -->
                     <template x-if="detail.power.budget || detail.power.consumedWatts != null || detail.power.totalWatts != null">
-                      <div class="grid grid-cols-3 gap-4 mb-6">
-                        <div class="bg-card border border-border rounded-lg p-4">
-                          <div class="text-xs text-gray-500 mb-1">Budget</div>
-                          <div class="text-2xl font-bold text-white"
+                      <div class="tile-grid mb-6">
+                        <div class="tile">
+                          <div class="eyebrow">Budget</div>
+                          <div class="tile-figure"
+                               :class="detail.power.budget?.budgetWatts == null ? 'is-empty' : ''"
                                x-text="detail.power.budget?.budgetWatts != null ? detail.power.budget.budgetWatts + ' W' : '-'"></div>
                         </div>
-                        <div class="bg-card border border-border rounded-lg p-4">
-                          <div class="text-xs text-gray-500 mb-1">Total Draw</div>
-                          <div class="text-2xl font-bold text-blue-400"
+                        <div class="tile">
+                          <div class="eyebrow">Total draw</div>
+                          <div class="tile-figure"
+                               :class="(detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) == null ? 'is-empty' : ''"
                                x-text="(detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) != null ? (detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) + ' W' : '-'"></div>
-                          <div x-show="detail.power.totalWatts != null" class="text-[10px] text-gray-500 mt-1">live · IPMI</div>
+                          <template x-if="detail.power.budget?.budgetWatts && (detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) != null">
+                            <div class="rail mt-2">
+                              <div class="fill"
+                                   :class="(detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) / detail.power.budget.budgetWatts >= 0.9 ? 'is-critical' : (detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) / detail.power.budget.budgetWatts >= 0.75 ? 'is-caution' : ''"
+                                   :style="'width: ' + Math.max(0, Math.min(100, (detail.power.totalWatts ?? detail.power.budget?.consumedWatts ?? detail.power.consumedWatts) / detail.power.budget.budgetWatts * 100)) + '%'"></div>
+                            </div>
+                          </template>
+                          <div x-show="detail.power.totalWatts != null" class="tile-sub">
+                            <span class="badge">live, IPMI</span>
+                          </div>
                         </div>
-                        <div class="bg-card border border-border rounded-lg p-4">
-                          <div class="text-xs text-gray-500 mb-1">Profile</div>
-                          <div class="text-sm text-gray-300" x-text="detail.power.budget?.profileType || '-'"></div>
+                        <div class="tile">
+                          <div class="eyebrow">Profile</div>
+                          <div class="t-heading mt-1" x-text="detail.power.budget?.profileType || '-'"></div>
                         </div>
                       </div>
                     </template>
 
                     <!-- PSUs -->
-                    <h3 class="text-xs text-gray-500 uppercase tracking-wide mb-2">Power Supplies</h3>
+                    <h3 class="eyebrow mb-2">Power supplies</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <template x-for="(psu, i) in (detail.power.psus ?? detail.power.supplies ?? [])" :key="i">
-                        <div class="bg-card border border-border rounded-lg p-4">
-                          <div class="flex items-center justify-between mb-2">
-                            <span class="font-medium text-white" x-text="psu.name || psu.model || ('PSU ' + (i+1))"></span>
-                            <span :class="healthColor(psu.health || psu.operState)"
-                                  class="text-xs" x-text="psu.health || psu.operState || psu.state || '-'"></span>
+                        <div class="panel">
+                          <div class="panel-head">
+                            <svg class="icon icon-20 t-muted"><use href="#i-plug-zap"/></svg>
+                            <span class="title" x-text="psu.name || psu.model || ('PSU ' + (i+1))"></span>
+                            <div class="actions">
+                              <span class="badge" :class="healthColor(psu.health || psu.operState)"
+                                    x-text="psu.health || psu.operState || psu.state || '-'"></span>
+                            </div>
                           </div>
-                          <dl class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                            <template x-if="psu.model">
-                              <div class="contents">
-                                <dt class="text-gray-500">Model</dt>
-                                <dd class="text-gray-200 break-all" x-text="psu.model"></dd>
-                              </div>
-                            </template>
-                            <template x-if="psu.manufacturer">
-                              <div class="contents">
-                                <dt class="text-gray-500">Manufacturer</dt>
-                                <dd class="text-gray-200" x-text="psu.manufacturer"></dd>
-                              </div>
-                            </template>
-                            <template x-if="psu.powerSupplyType">
-                              <div class="contents">
-                                <dt class="text-gray-500">Type</dt>
-                                <dd class="text-gray-200" x-text="psu.powerSupplyType"></dd>
-                              </div>
-                            </template>
-                            <dt class="text-gray-500">Max Output</dt>
-                            <dd class="text-gray-200" x-text="(psu.maxOutputWatts || psu.capacityWatts || psu.maxOutput || '-') + (psu.maxOutputWatts || psu.capacityWatts ? ' W' : '')"></dd>
-                            <dt class="text-gray-500">Input (AC)</dt>
-                            <dd class="text-gray-200 font-mono" x-text="psu.inputWatts != null ? psu.inputWatts + ' W' : '-'"></dd>
-                            <template x-if="psu.lastOutputWatts != null">
-                              <div class="contents">
-                                <dt class="text-gray-500">Output (DC)</dt>
-                                <dd class="text-gray-200 font-mono" x-text="psu.lastOutputWatts + ' W'"></dd>
-                              </div>
-                            </template>
-                            <template x-if="psu.lineInputVoltage != null">
-                              <div class="contents">
-                                <dt class="text-gray-500">Line Voltage</dt>
-                                <dd class="text-gray-200 font-mono" x-text="psu.lineInputVoltage + ' V'"></dd>
-                              </div>
-                            </template>
-                            <template x-if="psu.firmwareVersion">
-                              <div class="contents">
-                                <dt class="text-gray-500">Firmware</dt>
-                                <dd class="text-gray-200 font-mono" x-text="psu.firmwareVersion"></dd>
-                              </div>
-                            </template>
-                            <template x-if="psu.serial">
-                              <div class="contents">
-                                <dt class="text-gray-500">Serial</dt>
-                                <dd class="font-mono text-xs text-gray-400" x-text="psu.serial"></dd>
-                              </div>
-                            </template>
-                          </dl>
+                          <div class="panel-body">
+                            <dl class="kv">
+                              <template x-if="psu.model">
+                                <div class="contents">
+                                  <dt class="t-dim">Model</dt>
+                                  <dd class="t-control" x-text="psu.model"></dd>
+                                </div>
+                              </template>
+                              <template x-if="psu.manufacturer">
+                                <div class="contents">
+                                  <dt class="t-dim">Manufacturer</dt>
+                                  <dd class="t-control" x-text="psu.manufacturer"></dd>
+                                </div>
+                              </template>
+                              <template x-if="psu.powerSupplyType">
+                                <div class="contents">
+                                  <dt class="t-dim">Type</dt>
+                                  <dd class="t-control" x-text="psu.powerSupplyType"></dd>
+                                </div>
+                              </template>
+                              <dt class="t-dim">Max output</dt>
+                              <dd class="t-control num" x-text="(psu.maxOutputWatts || psu.capacityWatts || psu.maxOutput || '-') + (psu.maxOutputWatts || psu.capacityWatts ? ' W' : '')"></dd>
+                              <dt class="t-dim">Input (AC)</dt>
+                              <dd class="t-control num" x-text="psu.inputWatts != null ? psu.inputWatts + ' W' : '-'"></dd>
+                              <template x-if="psu.lastOutputWatts != null">
+                                <div class="contents">
+                                  <dt class="t-dim">Output (DC)</dt>
+                                  <dd class="t-control num" x-text="psu.lastOutputWatts + ' W'"></dd>
+                                </div>
+                              </template>
+                              <template x-if="psu.lineInputVoltage != null">
+                                <div class="contents">
+                                  <dt class="t-dim">Line voltage</dt>
+                                  <dd class="t-control num" x-text="psu.lineInputVoltage + ' V'"></dd>
+                                </div>
+                              </template>
+                              <template x-if="psu.firmwareVersion">
+                                <div class="contents">
+                                  <dt class="t-dim">Firmware</dt>
+                                  <dd class="t-control num" x-text="psu.firmwareVersion"></dd>
+                                </div>
+                              </template>
+                              <template x-if="psu.serial">
+                                <div class="contents">
+                                  <dt class="t-dim">Serial</dt>
+                                  <dd class="t-control num" x-text="psu.serial"></dd>
+                                </div>
+                              </template>
+                            </dl>
+                          </div>
                         </div>
                       </template>
                     </div>
+                  </div>
+                </template>
+                <template x-if="!detail.power">
+                  <div class="empty">
+                    <svg class="icon icon-24"><use href="#i-zap"/></svg>
+                    <span>No power data. Refresh the device to read it from the BMC.</span>
                   </div>
                 </template>
               </div>
@@ -1884,68 +1994,138 @@
             <!-- ── Sensors ── -->
             <template x-if="tab === 'sensors'">
               <div>
-                <div x-show="detail.sensors?.source" class="text-[11px] text-gray-500 mb-3">
-                  Source: <span class="uppercase font-mono" x-text="detail.sensors?.source"></span>
+                <div x-show="detail.sensors?.source" class="mb-4">
+                  <span class="chip">
+                    <span class="chip-label">Source</span>
+                    <span class="chip-value" x-text="detail.sensors?.source"></span>
+                  </span>
                   <template x-if="detail.sensors?.source === 'xmlapi' && selectedDevice?.adapter_type === 'cimc'">
-                    <span class="ml-2 text-yellow-500/80">
-                      &mdash; enable IPMI over LAN in CIMC for fan RPMs and PSU/voltage readings.
-                    </span>
+                    <div class="notice mt-2 max-w-2xl">
+                      <svg class="icon"><use href="#i-triangle-alert"/></svg>
+                      <span>Enable IPMI over LAN in CIMC to read fan speeds, PSU wattage and voltages.</span>
+                    </div>
                   </template>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <!-- Temperatures -->
-                  <div>
-                    <h3 class="text-xs text-gray-500 uppercase tracking-wide mb-3">Temperatures</h3>
-                    <div class="space-y-2">
-                      <template x-for="(t, i) in (detail.sensors?.temperatures ?? [])" :key="i">
-                        <div class="bg-card border border-border rounded px-3 py-2 flex items-center justify-between">
-                          <span class="text-sm text-gray-300" x-text="t.name"></span>
-                          <span class="font-mono font-bold" :class="t.celsius > 70 ? 'text-red-400' : t.celsius > 50 ? 'text-yellow-400' : 'text-green-400'"
-                                x-text="t.celsius != null ? t.celsius + ' °C' : '-'"></span>
-                        </div>
-                      </template>
-                      <template x-if="(detail.sensors?.temperatures ?? []).length === 0">
-                        <div class="text-xs text-gray-500">No temperature readings.</div>
-                      </template>
+                  <div class="panel">
+                    <div class="panel-head">
+                      <svg class="icon icon-20 t-muted"><use href="#i-thermometer"/></svg>
+                      <span class="title">Temperatures</span>
+                      <span class="count" x-text="(detail.sensors?.temperatures ?? []).length"></span>
+                    </div>
+                    <div class="panel-body flush">
+                      <table class="tbl">
+                        <thead>
+                          <tr>
+                            <th>Sensor</th>
+                            <th class="num">Reading</th>
+                            <th class="text-right">State</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="(t, i) in (detail.sensors?.temperatures ?? [])" :key="i">
+                            <tr>
+                              <td x-text="t.name"></td>
+                              <td class="num" x-text="t.celsius != null ? t.celsius + ' °C' : '-'"></td>
+                              <td class="text-right">
+                                <span x-show="t.celsius != null" class="badge"
+                                      :class="t.celsius > 70 ? 'badge-critical' : t.celsius > 50 ? 'badge-caution' : 'badge-good'"
+                                      x-text="t.celsius > 70 ? 'Hot' : t.celsius > 50 ? 'Warm' : 'Normal'"></span>
+                              </td>
+                            </tr>
+                          </template>
+                          <template x-if="(detail.sensors?.temperatures ?? []).length === 0">
+                            <tr>
+                              <td colspan="3">
+                                <div class="empty">
+                                  <svg class="icon icon-24"><use href="#i-thermometer"/></svg>
+                                  <span>No temperature readings.</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 
                   <!-- Fans -->
-                  <div>
-                    <h3 class="text-xs text-gray-500 uppercase tracking-wide mb-3">Fans</h3>
-                    <div class="space-y-2">
-                      <template x-for="(f, i) in (detail.sensors?.fans ?? [])" :key="i">
-                        <div class="bg-card border border-border rounded px-3 py-2 flex items-center justify-between">
-                          <span class="text-sm text-gray-300" x-text="f.name || ('Fan ' + (f.id || (i+1)))"></span>
-                          <div class="flex items-center gap-3">
-                            <span x-show="f.reading || f.speed" class="font-mono text-sm text-blue-300"
-                                  x-text="(f.reading || f.speed) + ' ' + (f.units || f.readingUnits || 'RPM')"></span>
-                            <span :class="healthColor(f.health || f.operState)"
-                                  class="text-xs" x-text="f.health || f.operState || ''"></span>
-                          </div>
-                        </div>
-                      </template>
-                      <template x-if="(detail.sensors?.fans ?? []).length === 0">
-                        <div class="text-xs text-gray-500">No fan readings.</div>
-                      </template>
+                  <div class="panel">
+                    <div class="panel-head">
+                      <svg class="icon icon-20 t-muted"><use href="#i-fan"/></svg>
+                      <span class="title">Fans</span>
+                      <span class="count" x-text="(detail.sensors?.fans ?? []).length"></span>
+                    </div>
+                    <div class="panel-body flush">
+                      <table class="tbl">
+                        <thead>
+                          <tr>
+                            <th>Fan</th>
+                            <th class="num">Speed</th>
+                            <th class="text-right">State</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="(f, i) in (detail.sensors?.fans ?? [])" :key="i">
+                            <tr>
+                              <td x-text="f.name || ('Fan ' + (f.id || (i+1)))"></td>
+                              <td class="num">
+                                <span x-show="f.reading || f.speed"
+                                      x-text="(f.reading || f.speed) + ' ' + (f.units || f.readingUnits || 'RPM')"></span>
+                              </td>
+                              <td class="text-right">
+                                <span class="badge" :class="healthColor(f.health || f.operState)"
+                                      x-text="f.health || f.operState || ''"></span>
+                              </td>
+                            </tr>
+                          </template>
+                          <template x-if="(detail.sensors?.fans ?? []).length === 0">
+                            <tr>
+                              <td colspan="3">
+                                <div class="empty">
+                                  <svg class="icon icon-24"><use href="#i-fan"/></svg>
+                                  <span>No fan readings.</span>
+                                </div>
+                              </td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>
 
                 <!-- Voltages (IPMI-only; hidden when empty) -->
                 <div x-show="(detail.sensors?.voltages ?? []).length" class="mt-6">
-                  <h3 class="text-xs text-gray-500 uppercase tracking-wide mb-3">Voltages</h3>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <template x-for="(v, i) in (detail.sensors?.voltages ?? [])" :key="i">
-                      <div class="bg-card border border-border rounded px-3 py-2 flex items-center justify-between">
-                        <span class="text-sm text-gray-300" x-text="v.name"></span>
-                        <div class="flex items-center gap-3">
-                          <span class="font-mono text-sm text-blue-300"
-                                x-text="(v.reading != null ? v.reading : '-') + ' ' + (v.units || 'V')"></span>
-                          <span :class="healthColor(v.health)" class="text-xs" x-text="v.health || ''"></span>
-                        </div>
-                      </div>
-                    </template>
+                  <div class="panel">
+                    <div class="panel-head">
+                      <svg class="icon icon-20 t-muted"><use href="#i-zap"/></svg>
+                      <span class="title">Voltages</span>
+                      <span class="count" x-text="(detail.sensors?.voltages ?? []).length"></span>
+                    </div>
+                    <div class="panel-body flush">
+                      <table class="tbl">
+                        <thead>
+                          <tr>
+                            <th>Rail</th>
+                            <th class="num">Reading</th>
+                            <th class="text-right">State</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="(v, i) in (detail.sensors?.voltages ?? [])" :key="i">
+                            <tr>
+                              <td x-text="v.name"></td>
+                              <td class="num" x-text="(v.reading != null ? v.reading : '-') + ' ' + (v.units || 'V')"></td>
+                              <td class="text-right">
+                                <span class="badge" :class="healthColor(v.health)" x-text="v.health || ''"></span>
+                              </td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1954,31 +2134,29 @@
 
 <!-- ── Console (KVM / Web) ── -->
             <template x-if="tab === 'kvm'">
-              <div class="bg-card border border-border rounded-lg p-6 max-w-2xl">
-                <div class="flex items-center gap-3 mb-4">
-                  <i class="fa-solid fa-display text-blue-400 text-xl"></i>
-                  <h3 class="text-white font-semibold text-lg">Remote Management Console</h3>
-                </div>
+              <div class="max-w-2xl flex flex-col gap-4">
 
                 <!-- Huawei iBMC Specific (Java JNLP) -->
                 <template x-if="selectedDevice?.adapter_type === 'ibmc'">
-                  <div>
-                    <p class="text-sm text-gray-400 mb-4">
-                      This server uses a Java-based Virtual Console. 
-                    </p>
-                    <div class="bg-black/20 rounded p-3 mb-6 border border-border/50">
-                      <p class="text-xs text-gray-500 leading-relaxed">
-                        <i class="fa-solid fa-info-circle mr-1 text-blue-500"></i>
-                        The dashboard will create a temporary web session to download your 
-                        <code class="text-gray-300">.jnlp</code> file. Open this file with 
-                        <span class="text-gray-300 italic">IcedTea-Web</span> or <span class="text-gray-300 italic">Java Web Start</span>.
+                  <div class="panel">
+                    <div class="panel-head">
+                      <svg class="icon icon-20 t-muted"><use href="#i-monitor"/></svg>
+                      <span class="title">iBMC virtual console</span>
+                    </div>
+                    <div class="panel-body">
+                      <p class="t-body max-w-prose">
+                        This server has a Java virtual console. The download opens the console in Java Web Start.
+                        A temporary web session is created on the BMC to fetch the launcher.
+                      </p>
+                      <a :href="'/api/devices/' + selectedDevice.id + '/kvm.jnlp'"
+                         class="btn btn-primary mt-3"
+                         download>
+                        <svg class="icon"><use href="#i-download"/></svg> Download the KVM launcher
+                      </a>
+                      <p class="t-small t-dim mt-3 max-w-prose">
+                        Open the .jnlp file with IcedTea-Web or Java Web Start.
                       </p>
                     </div>
-                    <a :href="'/api/devices/' + selectedDevice.id + '/kvm.jnlp'"
-                       class="btn-primary inline-flex items-center gap-2"
-                       download>
-                      <i class="fa-solid fa-download"></i> Download iBMC Console (.jnlp)
-                    </a>
                   </div>
                 </template>
 
@@ -1986,38 +2164,45 @@
                      XMLAPI adapter and the 3.0+ Redfish-hybrid adapter, since
                      CIMC 3.0 still has only the Java KVM (no HTML5). -->
                 <template x-if="['cimc', 'cimc_redfish'].includes(selectedDevice?.adapter_type)">
-                  <div class="bg-card border border-border rounded-lg p-6 max-w-2xl">
-                    <h3 class="text-white font-semibold text-lg mb-2">
-                      <i class="fa-solid fa-display mr-1.5"></i>Virtual KVM Console
-                    </h3>
-                    <p class="text-sm text-gray-400 mb-3">
-                      Click below to download a Java Web Start file. Open it with
-                      <code class="bg-black/40 px-1 rounded text-gray-300">javaws</code>
-                      to launch the Cisco KVM viewer with live video and keyboard input.
-                    </p>
-                    <p class="text-xs text-gray-500 mb-4">
-                      CIMC 2.0(9f) ships only the Java KVM &mdash; no HTML5 console exists on
-                      this firmware, so an external viewer is the only path. The viewer
-                      connects directly to <code class="text-gray-300" x-text="selectedDevice?.hostname"></code>
-                      on TCP/2068. Tokens are minted fresh each time and expire when the
-                      session ends.
-                    </p>
-                    <a :href="'/api/devices/' + selectedDevice.id + '/kvm.jnlp'"
-                      class="btn-action bg-blue-700 hover:bg-blue-600 inline-flex items-center gap-2"
-                      download>
-                      <i class="fa-solid fa-download"></i> Download KVM .jnlp
-                    </a>
-                    <p class="mt-4 text-[11px] text-gray-500 leading-relaxed">
-                      Requires a JRE with Web Start (e.g. OpenJDK + IcedTea-Web, or Oracle JRE 8).
-                      If Java warns about an unsigned/expired-cert applet, that's the BMC's
-                      self-signed cert &mdash; expected on this firmware.
-                    </p>
+                  <div class="panel">
+                    <div class="panel-head">
+                      <svg class="icon icon-20 t-muted"><use href="#i-monitor"/></svg>
+                      <span class="title">Cisco KVM console</span>
+                    </div>
+                    <div class="panel-body">
+                      <p class="t-body max-w-prose">
+                        The download opens the Cisco KVM viewer in Java Web Start, with live video and keyboard input.
+                        CIMC ships only the Java KVM on this firmware, so an external viewer is the only path.
+                      </p>
+                      <a :href="'/api/devices/' + selectedDevice.id + '/kvm.jnlp'"
+                        class="btn btn-primary mt-3"
+                        download>
+                        <svg class="icon"><use href="#i-download"/></svg> Download the KVM launcher
+                      </a>
+                      <p class="t-small t-dim mt-3 max-w-prose">
+                        The viewer connects straight to <span class="t-strong" x-text="selectedDevice?.hostname"></span>
+                        on TCP port 2068. Tokens are minted fresh each time and expire when the session ends.
+                        A JRE with Web Start is required, such as OpenJDK with IcedTea-Web. If Java warns about an
+                        unsigned or expired certificate, that is the BMC's self-signed certificate and is expected here.
+                      </p>
+                    </div>
                   </div>
                 </template>
 
                 <!-- Standard Redfish (iDRAC/iLO HTML5) -->
                 <template x-if="['idrac', 'ilo', 'redfish'].includes(selectedDevice?.adapter_type)">
-                    <!-- Your existing Redfish code here -->
+                    <div class="panel">
+                      <div class="panel-head">
+                        <svg class="icon icon-20 t-muted"><use href="#i-monitor"/></svg>
+                        <span class="title">Remote console</span>
+                      </div>
+                      <div class="panel-body">
+                        <div class="empty">
+                          <svg class="icon icon-24"><use href="#i-monitor"/></svg>
+                          <span>This server's HTML5 console opens from the BMC's own web interface. It is not launched from here.</span>
+                        </div>
+                      </div>
+                    </div>
                 </template>
               </div>
             </template>
