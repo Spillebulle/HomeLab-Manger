@@ -40,9 +40,9 @@
      (67.5). The guide asks that sibling apps not share an accent; this one is
      close, and that was a deliberate call so the mark and the accent match.
      ───────────────────────────────────────────────────────────────────── */
-  --accent-h: 77.5;
-  --accent-l: 0.723;   /* dark theme lightness  */
-  --accent-c: 0.151;   /* dark theme chroma     */
+  --accent-h: 349.1;
+  --accent-l: 0.628;   /* dark theme lightness  */
+  --accent-c: 0.221;   /* dark theme chroma     */
 
   /* ── Type ──────────────────────────────────────────────────────────────── */
   --font-ui: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -133,7 +133,7 @@
 
   /* Accent */
   --accent:          oklch(var(--accent-l) var(--accent-c) var(--accent-h));
-  --accent-dim:      oklch(0.447 0.091 var(--accent-h));
+  --accent-dim:      oklch(0.447 0.133 var(--accent-h));
   --accent-ink:      var(--window);
   --accent-tint:     color-mix(in oklab, var(--accent) 7%, transparent);
   --accent-ring:     color-mix(in oklab, var(--accent) 35%, transparent);
@@ -184,8 +184,8 @@
     --text-muted:     oklch(0.526 0.007 75);
     --text-dim:       oklch(0.634 0.008 81);
     --placeholder:    oklch(0.72 0.008 81);
-    --accent:         oklch(0.55 0.110 var(--accent-h));
-    --accent-dim:     oklch(0.79 0.043 var(--accent-h));
+    --accent:         oklch(0.59 0.221 var(--accent-h));
+    --accent-dim:     oklch(0.79 0.080 var(--accent-h));
     --accent-ink:     #FFFFFF;
     --caution:        oklch(0.518 0.114 39);
     --caution-bg:     oklch(0.943 0.018 49);
@@ -225,8 +225,8 @@
   --text-muted:     oklch(0.526 0.007 75);
   --text-dim:       oklch(0.634 0.008 81);
   --placeholder:    oklch(0.72 0.008 81);
-  --accent:         oklch(0.55 0.110 var(--accent-h));
-  --accent-dim:     oklch(0.79 0.043 var(--accent-h));
+  --accent:         oklch(0.59 0.221 var(--accent-h));
+  --accent-dim:     oklch(0.79 0.080 var(--accent-h));
   --accent-ink:     #FFFFFF;
   --caution:        oklch(0.518 0.114 39);
   --caution-bg:     oklch(0.943 0.018 49);

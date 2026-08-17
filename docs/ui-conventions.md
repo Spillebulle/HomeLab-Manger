@@ -9,35 +9,33 @@ what the class vocabulary is, and how the old markup maps onto the new.
 
 ## What this app sets
 
-The accent hue is 77.5. `--accent` is raised off the guide's stock recipe so it
-lands on exactly `#D99700`, the orange the logo is drawn in:
+The accent is **`#E13A9D`**, `oklch(0.628 0.221 349.1)`. It is the one colour
+this project chooses; every other accent token derives from it.
 
-| Token | Dark | Light |
-|---|---|---|
-| `--accent-h` | 77.5 | 77.5 |
-| `--accent` | `oklch(0.723 0.151 77.5)` = `#D99700` | `oklch(0.55 0.110 77.5)` |
-| `--accent-dim` | `oklch(0.447 0.091 77.5)` | `oklch(0.79 0.043 77.5)` |
+**Changing it is one command**, because it touches the token file, the mark, all
+the favicons and the banner together:
 
-The light theme cannot reuse the dark lightness and chroma. `#D99700` scores
-only 2.31:1 on light chrome, under the 3:1 floor, and `oklch(0.55 0.12 77.5)`
-falls outside sRGB. The light accent is the same hue re-stepped darker, which is
-how the ladder is meant to work.
+```sh
+python docs/set-accent.py "#E13A9D"          # apply
+python docs/set-accent.py "#3987E5" --check  # measure only, change nothing
+python docs/set-accent.py "#3987E5" --keep-logo
+```
 
-Hue 77.5 sits about 10 degrees from Umber's ochre (67.5). The guide asks that
-sibling apps not share an accent. This one is close, and that was a deliberate
-call so the mark and the accent match.
+The script refuses to write a colour that fails a contrast floor, and warns when
+the hue sits close to a semantic colour or to a sibling app's accent. It also
+picks the light-theme value for you: a colour bright enough to read on graphite
+is usually too pale on paper, so light is the same hue re-stepped darker until it
+clears the floors. Run it with `--check` for the current measurements rather than
+trusting numbers written down here, which go stale the moment the accent moves.
 
-Everything else derives, so the system holds: a few constants changed in
-`frontend/static/tokens.css`, no colour hard-coded into a component. Measured
-contrast, against the floors in §2.6 (accent on chrome 3:1, accent-ink on accent
-4.5:1):
+Two things it warns about for the present colour, both accepted:
 
-| | backdrop | window | dock | chrome | control |
-|---|---|---|---|---|---|
-| dark accent | 7.71 | 7.48 | 7.30 | 7.09 | 6.50 |
-| light accent | | 4.19 | 4.30 | 4.54 | 4.01 |
-
-`accent-ink` on `accent` is 7.48 dark, 4.93 light.
+- It is 33 degrees from `--critical`. Distinguishable in practice, since one is
+  magenta and the other a muted red, but they are the same warm family.
+- It is 2 degrees from `--series-5`, the fifth categorical chart colour. That
+  matters only in a chart with five or more series, which nothing in this app
+  draws today. The rule that actually protects the accent is that it is never
+  used as one of several series, and that still holds.
 
 ## Files
 
