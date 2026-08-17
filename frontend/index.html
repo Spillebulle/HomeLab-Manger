@@ -658,36 +658,37 @@
             <template x-if="tab === 'overview'">
               <div>
                 <template x-if="detail.status">
-                  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div class="tile-grid mb-6">
                     <!-- Switch status cards -->
                     <template x-if="isSwitch">
                       <template x-for="kv in statusKV(detail.status)" :key="kv.k">
-                        <div class="bg-card border border-border rounded-lg p-4">
-                          <div class="text-xs text-gray-500 mb-1" x-text="kv.k"></div>
-                          <div class="text-sm font-medium text-white break-all" x-text="kv.v"></div>
+                        <div class="tile">
+                          <div class="eyebrow" x-text="kv.k"></div>
+                          <div class="t-body figure break-all" x-text="kv.v"></div>
                         </div>
                       </template>
                     </template>
                     <!-- Server status cards -->
                     <template x-if="isServer">
                       <template x-for="kv in statusKV(detail.status)" :key="kv.k">
-                        <div class="bg-card border border-border rounded-lg p-4">
-                          <div class="text-xs text-gray-500 mb-1" x-text="kv.k"></div>
-                          <div class="text-sm font-medium" :class="kv.k === 'health' ? healthColor(kv.v) : 'text-white'" x-text="kv.v"></div>
+                        <div class="tile">
+                          <div class="eyebrow" x-text="kv.k"></div>
+                          <div class="t-body t-strong break-all" :class="kv.k === 'health' ? healthColor(kv.v) : ''" x-text="kv.v"></div>
                         </div>
                       </template>
                     </template>
                   </div>
                 </template>
-                <!-- Power actions (server) -->
+                <!-- Power actions (server). The destructive ones wear the danger
+                     button; none of them is the primary action of this view. -->
                 <template x-if="isServer">
                   <div class="flex flex-wrap gap-2">
-                    <button @click="confirm('Power On?',   () => action('power_on'))"    class="btn-action bg-green-700 hover:bg-green-600"><i class="fa-solid fa-power-off mr-1"></i>Power On</button>
-                    <button @click="confirm('Power Off?',  () => action('power_off'))"   class="btn-action bg-red-700 hover:bg-red-600"><i class="fa-solid fa-power-off mr-1"></i>Power Off</button>
-                    <button @click="confirm('Power Cycle?',() => action('power_cycle'))" class="btn-action bg-yellow-600 hover:bg-yellow-500"><i class="fa-solid fa-rotate-right mr-1"></i>Power Cycle</button>
-                    <button @click="confirm('Hard Reset?', () => action('hard_reset'))"  class="btn-action bg-orange-700 hover:bg-orange-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Hard Reset</button>
+                    <button @click="confirm('Power On?',   () => action('power_on'))"    class="btn"><svg class="icon"><use href="#i-power"/></svg>Power on</button>
+                    <button @click="confirm('Power Off?',  () => action('power_off'))"   class="btn btn-danger"><svg class="icon"><use href="#i-power"/></svg>Power off</button>
+                    <button @click="confirm('Power Cycle?',() => action('power_cycle'))" class="btn btn-danger"><svg class="icon"><use href="#i-rotate-cw"/></svg>Power cycle</button>
+                    <button @click="confirm('Hard Reset?', () => action('hard_reset'))"  class="btn btn-danger"><svg class="icon"><use href="#i-triangle-alert"/></svg>Hard reset</button>
                     <template x-if="selectedDevice?.adapter_type !== 'cimc'">
-                      <button @click="confirm('Graceful Shutdown?', () => action('graceful_shutdown'))" class="btn-action bg-gray-600 hover:bg-gray-500"><i class="fa-solid fa-stop mr-1"></i>Graceful Shutdown</button>
+                      <button @click="confirm('Graceful Shutdown?', () => action('graceful_shutdown'))" class="btn"><svg class="icon"><use href="#i-square"/></svg>Graceful shutdown</button>
                     </template>
                   </div>
                 </template>
@@ -696,59 +697,66 @@
                 <template x-if="isUps && detail.status">
                   <div>
                     <!-- State banner. When the poll errors (lost connection) we
-                         keep the last good reading but flip the banner to a red
-                         "Offline" with a "last status" note. -->
-                    <div class="rounded-lg p-4 mb-4 border flex items-center gap-3"
-                         :class="detail.status_error ? 'bg-red-900/30 border-red-700 text-red-200' : upsStateClass(detail.status.state)">
-                      <i class="fa-solid text-xl"
-                         :class="detail.status_error ? 'fa-plug-circle-xmark' : (detail.status.state === 'online' ? 'fa-plug-circle-check' : 'fa-battery-quarter')"></i>
+                         keep the last good reading but flip the banner to the
+                         critical notice with a "last status" note. -->
+                    <div class="notice mb-4"
+                         :class="detail.status_error ? 'notice-critical' : upsStateClass(detail.status.state)">
+                      <svg class="icon icon-20"><use :href="detail.status_error ? '#i-unplug' : (detail.status.state === 'online' ? '#i-plug-zap' : '#i-zap')"/></svg>
                       <div class="min-w-0">
-                        <div class="text-lg font-semibold" x-text="detail.status_error ? 'Offline' : detail.status.state_label"></div>
-                        <div class="text-xs opacity-80" x-show="detail.status_error">
+                        <div class="t-heading" x-text="detail.status_error ? 'Offline' : detail.status.state_label"></div>
+                        <div class="t-tiny" x-show="detail.status_error">
                           Last status: <span x-text="detail.status.state_label"></span><span x-show="detail.status_updated" x-text="' · ' + relTime(detail.status_updated)"></span>
                         </div>
-                        <div class="text-xs opacity-80"
+                        <div class="t-tiny"
                              x-text="(detail.status.mfr || '') + ' ' + (detail.status.model || '') + (detail.status.serial ? ' · S/N ' + detail.status.serial : '')"></div>
-                        <div class="text-xs text-red-300/90 mt-0.5 truncate" x-show="detail.status_error"
+                        <div class="t-tiny t-critical truncate" x-show="detail.status_error"
                              x-text="detail.status_error" :title="detail.status_error"></div>
                       </div>
                     </div>
-                    <!-- Metric cards (dimmed when showing a stale last-known reading) -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2" :class="detail.status_error ? 'opacity-50' : ''">
-                      <div class="bg-card border border-border rounded-lg p-4">
-                        <div class="text-xs text-gray-500 mb-1">Charge</div>
-                        <div class="text-2xl font-semibold text-white" x-text="fmtPct(detail.status.charge_pct)"></div>
+                    <!-- Metric tiles (dimmed when showing a stale last-known reading) -->
+                    <div class="tile-grid mb-3" :class="detail.status_error ? 'opacity-50' : ''">
+                      <div class="tile">
+                        <div class="eyebrow">Charge</div>
+                        <div class="tile-figure" x-text="fmtPct(detail.status.charge_pct)"></div>
+                        <div class="rail mt-2" x-show="detail.status.charge_pct != null">
+                          <div class="fill"
+                               :class="detail.status.state === 'low_battery' ? 'is-critical' : (detail.status.state === 'on_battery' ? 'is-caution' : '')"
+                               :style="'width: ' + Math.max(0, Math.min(100, detail.status.charge_pct || 0)) + '%'"></div>
+                        </div>
                       </div>
-                      <div class="bg-card border border-border rounded-lg p-4">
-                        <div class="text-xs text-gray-500 mb-1">Runtime remaining</div>
-                        <div class="text-2xl font-semibold text-white" x-text="detail.status.runtime_text || '-'"></div>
+                      <div class="tile">
+                        <div class="eyebrow">Runtime remaining</div>
+                        <div class="tile-figure" x-text="detail.status.runtime_text || '-'"></div>
+                        <div class="tile-sub">At the current load.</div>
                       </div>
-                      <div class="bg-card border border-border rounded-lg p-4">
-                        <div class="text-xs text-gray-500 mb-1">Load</div>
-                        <div class="text-2xl font-semibold text-white" x-text="fmtPct(detail.status.load_pct)"></div>
+                      <div class="tile">
+                        <div class="eyebrow">Load</div>
+                        <div class="tile-figure" x-text="fmtPct(detail.status.load_pct)"></div>
+                        <div class="tile-sub">Of the rated output.</div>
                       </div>
-                      <div class="bg-card border border-border rounded-lg p-4">
-                        <div class="text-xs text-gray-500 mb-1">Power draw</div>
-                        <div class="text-2xl font-semibold text-white"
+                      <div class="tile">
+                        <div class="eyebrow">Power draw</div>
+                        <div class="tile-figure"
                              x-text="detail.status.watts != null ? detail.status.watts + ' W' : '-'"></div>
+                        <div class="tile-sub">Drawn by the protected kit.</div>
                       </div>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-gray-400">
-                      <div class="px-1" x-show="detail.status.input_voltage != null">
-                        Input: <span class="text-gray-200" x-text="detail.status.input_voltage + ' V'"></span>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <div class="chip" x-show="detail.status.input_voltage != null">
+                        <span class="chip-label">Input</span><span class="chip-value" x-text="detail.status.input_voltage + ' V'"></span>
                       </div>
-                      <div class="px-1" x-show="detail.status.nominal_voltage != null">
-                        Nominal: <span class="text-gray-200" x-text="detail.status.nominal_voltage + ' V'"></span>
+                      <div class="chip" x-show="detail.status.nominal_voltage != null">
+                        <span class="chip-label">Nominal</span><span class="chip-value" x-text="detail.status.nominal_voltage + ' V'"></span>
                       </div>
-                      <div class="px-1" x-show="detail.status.usb">
-                        USB: <span class="text-gray-200 font-mono" x-text="detail.status.usb"></span>
+                      <div class="chip" x-show="detail.status.usb">
+                        <span class="chip-label">USB</span><span class="chip-value" x-text="detail.status.usb"></span>
                       </div>
                     </div>
                   </div>
                 </template>
                 <template x-if="isUps && !detail.status && detail.status_error">
-                  <div class="bg-red-900/30 border border-red-700 rounded-lg p-4 text-sm text-red-300">
-                    <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                  <div class="notice notice-critical">
+                    <svg class="icon"><use href="#i-triangle-alert"/></svg>
                     <span x-text="detail.status_error"></span>
                   </div>
                 </template>
@@ -758,52 +766,61 @@
             <!-- ── UPS Graphs ── -->
             <template x-if="tab === 'graphs'">
               <div x-init="$nextTick(() => initUpsGraphs())">
-                <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
-                  <span class="text-sm text-gray-400">Power history</span>
-                  <div class="flex gap-1 text-xs">
+                <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <span class="eyebrow">Power history</span>
+                  <div class="segmented">
                     <template x-for="r in upsRanges" :key="r.label">
                       <button @click="upsCustom.active = false; upsRangeHours = r.hours; loadUpsHistory()"
-                              :class="(!upsCustom.active && upsRangeHours === r.hours) ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
-                              class="px-2.5 py-1 rounded transition-colors" x-text="r.label"></button>
+                              :class="(!upsCustom.active && upsRangeHours === r.hours) ? 'is-selected' : ''"
+                              x-text="r.label"></button>
                     </template>
                     <button @click="toggleUpsCustom()"
-                            :class="upsCustom.active ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
-                            class="px-2.5 py-1 rounded transition-colors">
-                      <i class="fa-solid fa-sliders mr-1"></i>Custom
+                            :class="upsCustom.active ? 'is-selected' : ''"
+                            title="Choose your own from and to">
+                      <svg class="icon"><use href="#i-sliders-horizontal"/></svg>Custom
                     </button>
                   </div>
                 </div>
                 <!-- Custom range picker -->
-                <div x-show="upsCustom.active" class="flex items-end flex-wrap gap-2 mb-4 text-xs">
-                  <div>
-                    <label class="block text-gray-500 mb-0.5">From</label>
-                    <input type="datetime-local" x-model="upsCustom.from" class="input py-1">
+                <div x-show="upsCustom.active" class="flex items-end flex-wrap gap-2 mb-4">
+                  <div class="w-48">
+                    <label class="field-label">From</label>
+                    <input type="datetime-local" x-model="upsCustom.from" class="input">
                   </div>
-                  <div>
-                    <label class="block text-gray-500 mb-0.5">To</label>
-                    <input type="datetime-local" x-model="upsCustom.to" class="input py-1">
+                  <div class="w-48">
+                    <label class="field-label">To</label>
+                    <input type="datetime-local" x-model="upsCustom.to" class="input">
                   </div>
-                  <button @click="loadUpsHistory()" class="btn-primary py-1">Apply</button>
+                  <button @click="loadUpsHistory()" class="btn btn-primary">Apply</button>
                 </div>
-                <div x-show="upsHistoryEmpty" class="text-sm text-gray-500 bg-card border border-border rounded-lg p-6 text-center">
-                  No samples yet - graphs populate as the poller collects data (one sample per minute).
+                <div x-show="upsHistoryEmpty" class="empty">
+                  <svg class="icon icon-24"><use href="#i-chart-line"/></svg>
+                  <span>No samples yet. The graphs fill in as the poller collects data, one sample a minute.</span>
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div class="bg-card border border-border rounded-lg p-4">
-                    <div class="text-xs text-gray-400 mb-2">Load (%) &amp; Power (W)</div>
-                    <div class="h-56"><canvas id="upsChartPower"></canvas></div>
+                  <div class="panel">
+                    <div class="panel-head"><span class="title">Load and power</span></div>
+                    <div class="panel-body">
+                      <div class="chart h-56"><canvas id="upsChartPower"></canvas></div>
+                    </div>
                   </div>
-                  <div class="bg-card border border-border rounded-lg p-4">
-                    <div class="text-xs text-gray-400 mb-2">Battery charge (%)</div>
-                    <div class="h-56"><canvas id="upsChartCharge"></canvas></div>
+                  <div class="panel">
+                    <div class="panel-head"><span class="title">Battery charge</span></div>
+                    <div class="panel-body">
+                      <div class="chart h-56"><canvas id="upsChartCharge"></canvas></div>
+                    </div>
                   </div>
-                  <div class="bg-card border border-border rounded-lg p-4">
-                    <div class="text-xs text-gray-400 mb-2">Runtime remaining (min)</div>
-                    <div class="h-56"><canvas id="upsChartRuntime"></canvas></div>
+                  <div class="panel">
+                    <div class="panel-head"><span class="title">Runtime remaining</span></div>
+                    <div class="panel-body">
+                      <div class="chart h-56"><canvas id="upsChartRuntime"></canvas></div>
+                    </div>
                   </div>
-                  <div class="bg-card border border-border rounded-lg p-4">
-                    <div class="text-xs text-gray-400 mb-2">Input voltage (V)</div>
-                    <div class="h-56"><canvas id="upsChartVoltage"></canvas></div>
+                  <div class="panel">
+                    <div class="panel-head"><span class="title">Input voltage</span></div>
+                    <div class="panel-body">
+                      <div class="chart h-56"><canvas id="upsChartVoltage"></canvas></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -812,46 +829,49 @@
             <!-- ── UPS Shutdown plan (outage orchestration) ── -->
             <template x-if="tab === 'shutdown'">
               <div x-init="$nextTick(() => loadShutdownRules())">
-                <p class="text-sm text-gray-400 mb-1">
+                <p class="t-body t-muted mb-1">
                   When this UPS goes on battery, automatically run an action on the
                   devices below once their threshold is reached.
                 </p>
-                <p class="text-xs text-gray-500 mb-4">
+                <p class="t-small t-dim mb-4">
                   Each device fires once per outage and re-arms when mains power returns.
-                  A blank threshold is ignored; if both are blank the action fires as soon
-                  as the UPS is on battery. Actions use each device's own adapter (BMC
-                  graceful shutdown, etc.).
+                  A blank threshold is ignored. If both are blank the action fires as soon
+                  as the UPS is on battery. Actions use each device's own adapter, such as
+                  a BMC graceful shutdown.
                 </p>
 
                 <!-- Current UPS state context -->
                 <template x-if="detail.status">
-                  <div class="text-xs mb-4 inline-flex items-center gap-2 px-2.5 py-1 rounded border"
-                       :class="detail.status_error ? 'bg-red-900/30 border-red-700 text-red-200' : upsStateClass(detail.status.state)">
-                    <i class="fa-solid fa-bolt"></i>
-                    <span x-text="detail.status_error ? 'Offline' : detail.status.state_label"></span>
-                    <span x-show="!detail.status_error && detail.status.charge_pct != null"
+                  <div class="notice mb-4"
+                       :class="detail.status_error ? 'notice-critical' : upsStateClass(detail.status.state)">
+                    <svg class="icon"><use href="#i-zap"/></svg>
+                    <span class="t-control" x-text="detail.status_error ? 'Offline' : detail.status.state_label"></span>
+                    <span class="figure t-small" x-show="!detail.status_error && detail.status.charge_pct != null"
                           x-text="'· ' + fmtPct(detail.status.charge_pct) + ' · ' + (detail.status.runtime_text || '')"></span>
                   </div>
                 </template>
 
                 <!-- Last action + log -->
-                <div class="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-2.5 mb-4">
-                  <div class="text-sm min-w-0">
-                    <span class="text-gray-500">Last action: </span>
-                    <template x-if="shutdownLastAction">
-                      <span class="text-gray-200" x-text="shutdownLastAction.title + ' · ' + relTime(shutdownLastAction.ts)"></span>
-                    </template>
-                    <span x-show="!shutdownLastAction" class="text-gray-500 italic">none yet</span>
+                <div class="panel mb-4">
+                  <div class="panel-body flex items-center flex-wrap gap-3">
+                    <div class="t-tiny min-w-0 flex-1">
+                      <span>Last action: </span>
+                      <template x-if="shutdownLastAction">
+                        <span class="t-strong" x-text="shutdownLastAction.title + ' · ' + relTime(shutdownLastAction.ts)"></span>
+                      </template>
+                      <span x-show="!shutdownLastAction">none yet</span>
+                    </div>
+                    <span class="t-tiny">A dry run sends nothing to any device.</span>
+                    <button @click="testShutdownPlan()" :disabled="!shutdownRules.length || shutdownTesting"
+                            title="Simulate an outage. Shows what would fire and sends nothing to any device."
+                            class="btn whitespace-nowrap">
+                      <svg class="icon"><use href="#i-flask-conical"/></svg><span x-text="shutdownTesting ? 'Testing…' : 'Test plan (dry run)'"></span>
+                    </button>
+                    <button @click="openEventsModal(selectedId, null, (selectedDevice?.name || 'UPS') + ' - event log')"
+                            class="btn whitespace-nowrap" title="Every event recorded for this UPS">
+                      <svg class="icon"><use href="#i-history"/></svg>View log
+                    </button>
                   </div>
-                  <button @click="testShutdownPlan()" :disabled="!shutdownRules.length || shutdownTesting"
-                          title="Simulate an outage - shows what would fire, sends nothing to any device"
-                          class="btn-secondary text-xs whitespace-nowrap disabled:opacity-50">
-                    <i class="fa-solid fa-flask mr-1"></i><span x-text="shutdownTesting ? 'Testing…' : 'Test plan (dry run)'"></span>
-                  </button>
-                  <button @click="openEventsModal(selectedId, null, (selectedDevice?.name || 'UPS') + ' - event log')"
-                          class="btn-secondary text-xs whitespace-nowrap">
-                    <i class="fa-solid fa-clock-rotate-left mr-1"></i>View log
-                  </button>
                 </div>
 
                 <!-- Add a device -->
@@ -863,82 +883,85 @@
                     </template>
                   </select>
                   <button @click="addShutdownTarget()" :disabled="!shutdownAddTarget"
-                          class="btn-primary whitespace-nowrap disabled:opacity-50">
-                    <i class="fa-solid fa-plus mr-1"></i>Add
+                          class="btn btn-primary whitespace-nowrap">
+                    <svg class="icon"><use href="#i-plus"/></svg>Add
                   </button>
                 </div>
 
-                <div x-show="!shutdownRules.length"
-                     class="text-sm text-gray-500 bg-card border border-border rounded-lg p-6 text-center">
-                  No devices in the shutdown plan yet.
+                <div x-show="!shutdownRules.length" class="empty">
+                  <svg class="icon icon-24"><use href="#i-power"/></svg>
+                  <span>No devices in the shutdown plan yet. Choose one above to protect it.</span>
                 </div>
 
-                <div x-show="shutdownRules.length" class="overflow-x-auto">
-                  <table class="w-full text-sm">
-                    <thead class="text-xs text-gray-500 border-b border-border">
-                      <tr>
-                        <th class="text-left font-medium py-2 pr-3">Device</th>
-                        <th class="text-left font-medium py-2 px-3" title="Lower fires first during an outage">Order</th>
-                        <th class="text-left font-medium py-2 px-3">Action</th>
-                        <th class="text-left font-medium py-2 px-3">When charge ≤</th>
-                        <th class="text-left font-medium py-2 px-3">When runtime ≤</th>
-                        <th class="text-left font-medium py-2 px-3" title="Wait after this device before the next one fires">Then wait</th>
-                        <th class="text-center font-medium py-2 px-3">On</th>
-                        <th class="py-2 pl-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border">
-                      <template x-for="rule in shutdownRules" :key="rule.id">
+                <div x-show="shutdownRules.length" class="panel">
+                  <div class="panel-body flush tbl-wrap">
+                    <table class="tbl">
+                      <thead>
                         <tr>
-                          <td class="py-2 pr-3">
-                            <div class="text-gray-200" x-text="rule.target_name"></div>
-                            <div class="text-[11px] text-gray-500">
-                              <span x-text="rule.target_type"></span>
-                              <span x-show="rule.last_triggered_at" class="text-amber-400"
-                                    x-text="'· fired ' + relTime(rule.last_triggered_at)"></span>
-                            </div>
-                          </td>
-                          <td class="py-2 px-3 whitespace-nowrap">
-                            <input type="number" min="0" x-model.number="rule.priority"
-                                   @change="updateShutdownRule(rule)"
-                                   class="input py-1 w-16 inline-block">
-                          </td>
-                          <td class="py-2 px-3">
-                            <select x-model="rule.action" @change="updateShutdownRule(rule)" class="input py-1">
-                              <template x-for="a in (rule.target_shutdown_actions || [])" :key="a">
-                                <option :value="a" x-text="shutdownActionLabel(a)"></option>
-                              </template>
-                            </select>
-                          </td>
-                          <td class="py-2 px-3 whitespace-nowrap">
-                            <input type="number" min="0" max="100" x-model="rule._charge"
-                                   @change="updateShutdownRule(rule)"
-                                   class="input py-1 w-20 inline-block" placeholder="-"> %
-                          </td>
-                          <td class="py-2 px-3 whitespace-nowrap">
-                            <input type="number" min="0" x-model="rule._runtimeMin"
-                                   @change="updateShutdownRule(rule)"
-                                   class="input py-1 w-20 inline-block" placeholder="-"> min
-                          </td>
-                          <td class="py-2 px-3 whitespace-nowrap">
-                            <input type="number" min="0" x-model.number="rule.delay_after_sec"
-                                   @change="updateShutdownRule(rule)"
-                                   class="input py-1 w-16 inline-block"> s
-                          </td>
-                          <td class="py-2 px-3 text-center">
-                            <input type="checkbox" x-model="rule.enabled" @change="updateShutdownRule(rule)"
-                                   class="w-4 h-4 accent-blue-500">
-                          </td>
-                          <td class="py-2 pl-3 text-right">
-                            <button @click="deleteShutdownRule(rule)" title="Remove"
-                                    class="text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-card">
-                              <i class="fa-solid fa-trash"></i>
-                            </button>
-                          </td>
+                          <th>Device</th>
+                          <th title="Lower fires first during an outage">Order</th>
+                          <th>Action</th>
+                          <th>Charge ≤ (%)</th>
+                          <th>Runtime ≤ (min)</th>
+                          <th title="Wait after this device before the next one fires">Then wait (s)</th>
+                          <th>On</th>
+                          <th></th>
                         </tr>
-                      </template>
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        <template x-for="rule in shutdownRules" :key="rule.id">
+                          <tr>
+                            <td>
+                              <div class="t-control t-strong" x-text="rule.target_name"></div>
+                              <div class="t-tiny">
+                                <span x-text="rule.target_type"></span>
+                                <span x-show="rule.last_triggered_at" class="t-caution"
+                                      x-text="'· fired ' + relTime(rule.last_triggered_at)"></span>
+                              </div>
+                            </td>
+                            <td>
+                              <input type="number" min="0" x-model.number="rule.priority"
+                                     @change="updateShutdownRule(rule)"
+                                     class="input" style="width: 64px">
+                            </td>
+                            <td>
+                              <select x-model="rule.action" @change="updateShutdownRule(rule)"
+                                      class="input" style="width: 168px">
+                                <template x-for="a in (rule.target_shutdown_actions || [])" :key="a">
+                                  <option :value="a" x-text="shutdownActionLabel(a)"></option>
+                                </template>
+                              </select>
+                            </td>
+                            <td>
+                              <input type="number" min="0" max="100" x-model="rule._charge"
+                                     @change="updateShutdownRule(rule)"
+                                     class="input" style="width: 76px" placeholder="–">
+                            </td>
+                            <td>
+                              <input type="number" min="0" x-model="rule._runtimeMin"
+                                     @change="updateShutdownRule(rule)"
+                                     class="input" style="width: 76px" placeholder="–">
+                            </td>
+                            <td>
+                              <input type="number" min="0" x-model.number="rule.delay_after_sec"
+                                     @change="updateShutdownRule(rule)"
+                                     class="input" style="width: 64px">
+                            </td>
+                            <td>
+                              <input type="checkbox" x-model="rule.enabled" @change="updateShutdownRule(rule)"
+                                     class="toggle" title="Fire this rule during an outage">
+                            </td>
+                            <td class="text-right">
+                              <button @click="deleteShutdownRule(rule)" title="Remove from the plan"
+                                      class="btn-icon is-danger">
+                                <svg class="icon"><use href="#i-trash-2"/></svg>
+                              </button>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </template>
@@ -946,44 +969,46 @@
             <!-- ── Notifications ── -->
             <template x-if="tab === 'notifications'">
               <div x-init="$nextTick(() => loadNotifications())" class="max-w-xl">
-                <p class="text-sm text-gray-400 mb-4">
+                <p class="t-body t-muted mb-4">
                   Send alerts to a Discord webhook for events on this device.
                 </p>
-                <label class="flex items-center gap-2 mb-4 text-sm text-gray-200">
-                  <input type="checkbox" x-model="notif.enabled" class="w-4 h-4 accent-blue-500">
-                  Enable notifications for this device
+                <label class="set-row">
+                  <span class="set-label">Enable notifications for this device</span>
+                  <input type="checkbox" x-model="notif.enabled" class="toggle">
                 </label>
-                <div class="mb-4">
-                  <label class="label">Discord webhook URL</label>
-                  <input x-model="notif.webhook_url" type="url" class="input w-full"
+                <div class="mt-3 mb-5">
+                  <label class="field-label">Discord webhook URL</label>
+                  <input x-model="notif.webhook_url" type="url" class="input"
                          placeholder="https://discord.com/api/webhooks/…">
                 </div>
-                <div class="space-y-2 mb-5">
-                  <div class="text-xs text-gray-500 uppercase tracking-wide">Notify on</div>
-                  <label class="flex items-center gap-2 text-sm text-gray-300">
-                    <input type="checkbox" x-model="notif.notify_offline" class="w-4 h-4 accent-blue-500">
-                    Device goes offline / comes back online
+                <div class="mb-5">
+                  <div class="eyebrow">Notify on</div>
+                  <label class="set-row">
+                    <span class="set-label">Device goes offline or comes back online</span>
+                    <input type="checkbox" x-model="notif.notify_offline" class="toggle">
                   </label>
                   <template x-if="isUps">
-                    <label class="flex items-center gap-2 text-sm text-gray-300">
-                      <input type="checkbox" x-model="notif.notify_ups_state" class="w-4 h-4 accent-blue-500">
-                      UPS state changes (on battery / low / restored)
+                    <label class="set-row">
+                      <span class="set-label">UPS state changes
+                        <span class="set-sub" style="display: block">On battery, low battery and restored.</span>
+                      </span>
+                      <input type="checkbox" x-model="notif.notify_ups_state" class="toggle">
                     </label>
                   </template>
                   <template x-if="isUps">
-                    <label class="flex items-center gap-2 text-sm text-gray-300">
-                      <input type="checkbox" x-model="notif.notify_action" class="w-4 h-4 accent-blue-500">
-                      A shutdown action is triggered
+                    <label class="set-row">
+                      <span class="set-label">A shutdown action is triggered</span>
+                      <input type="checkbox" x-model="notif.notify_action" class="toggle">
                     </label>
                   </template>
                 </div>
                 <div class="flex gap-2">
-                  <button @click="saveNotifications()" :disabled="notif.busy" class="btn-primary">
-                    <i class="fa-solid fa-floppy-disk mr-1"></i>Save
+                  <button @click="saveNotifications()" :disabled="notif.busy" class="btn btn-primary">
+                    <svg class="icon"><use href="#i-save"/></svg>Save
                   </button>
                   <button @click="testNotification()" :disabled="notif.busy || !notif.webhook_url"
-                          class="btn-secondary disabled:opacity-50">
-                    <i class="fa-solid fa-paper-plane mr-1"></i>Send test
+                          class="btn">
+                    <svg class="icon"><use href="#i-send"/></svg>Send test
                   </button>
                 </div>
               </div>
