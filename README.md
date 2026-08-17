@@ -170,8 +170,9 @@ monospaced so a column lines up and a reading does not jitter as it changes. A
 chart draws a real gap where polling stopped rather than interpolating across it.
 
 Dark, light, or follow the system. The interface follows
-[the house design principles](docs/ui-conventions.md), and the typeface and icons
-are bundled rather than fetched, so it works on a network with no route out.
+[the house design principles](docs/ui-conventions.md). The typeface and the icon
+set are bundled rather than fetched; Tailwind, Alpine and Chart.js still come
+from a CDN, so a machine with no route out gets an unstyled page.
 
 ## Themes
 
@@ -196,6 +197,7 @@ skipped.
 | Uptime Kuma | It has no management API, only a socket protocol, so it is listed and disabled rather than half-working. |
 | Serial-over-USB UPSes | Only the HID power device class is read. Megatec and Voltronic units that answer `Q1` over a serial bridge are not supported. |
 | Other DNS and proxy providers | Service publishing is Namecheap and Nginx Proxy Manager only, over HTTP-01. There is no DNS challenge. |
+| Running with no internet access | Tailwind, Alpine and Chart.js load from a CDN at runtime. The typeface and icons are bundled, but the page is unstyled without a route out. |
 | A theme for the app icon | The interface follows an imported theme, but the favicon and the banner are files baked at build time and keep the app's own colour. |
 | Routers and PDUs | Only through the generic SNMP adapter. There is no vendor adapter for either, and no device can be powered off through a PDU. |
 
