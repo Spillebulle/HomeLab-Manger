@@ -69,12 +69,51 @@ with sync_playwright() as pw:
     pg.screenshot(path=out / '14-add-device.png')
     pg.keyboard.press('Escape'); pg.click('.btn-icon[title=Close]'); time.sleep(0.8)
 
-    # Light theme, same dashboard, to prove the token table is complete.
-    pg.click('.nav-row:has-text("Dashboard")'); time.sleep(1.2)
-    pg.click('.segmented button[title=Light]'); time.sleep(1.2)
-    pg.screenshot(path=out / '15-dashboard-light.png')
-    dev('apc-rack'); tab('Graphs'); time.sleep(2.5)
-    pg.screenshot(path=out / '16-ups-graphs-light.png')
+    # §3: "Test both themes on every screen. A theme found only in a screenshot
+    # of the dark one is a theme nobody tried." So walk the whole app again in
+    # light, into out/light/.
+    light = out / "light"
+    light.mkdir(exist_ok=True)
+    pg.click('.nav-row:has-text("Dashboard")'); time.sleep(1.0)
+    pg.click('.segmented button[title=Light]'); time.sleep(1.0)
+    pg.screenshot(path=light / '01-dashboard.png')
+
+    dev('core-sw-01');  pg.screenshot(path=light / '02-switch-overview.png')
+    tab('Ports');       pg.screenshot(path=light / '03-switch-ports.png')
+    tab('PoE');         pg.screenshot(path=light / '04-switch-poe.png')
+    tab('Connected');   pg.screenshot(path=light / '05-switch-connected.png')
+    tab('VLANs');       pg.screenshot(path=light / '05b-switch-vlans.png')
+
+    dev('esxi-01');     pg.screenshot(path=light / '06-server-overview.png')
+    tab('Hardware');    pg.screenshot(path=light / '07-server-hardware.png')
+    tab('Storage');     pg.screenshot(path=light / '07b-server-storage.png')
+    tab('Network');     pg.screenshot(path=light / '07c-server-network.png')
+    tab('Power');       pg.screenshot(path=light / '08-server-power.png')
+    tab('Sensors');     pg.screenshot(path=light / '09-server-sensors.png')
+    tab('Console');     pg.screenshot(path=light / '09b-server-console.png')
+
+    dev('apc-rack');    pg.screenshot(path=light / '10-ups-overview.png')
+    tab('Graphs');      time.sleep(2.0); pg.screenshot(path=light / '11-ups-graphs.png')
+    tab('Shutdown');    pg.screenshot(path=light / '11b-ups-shutdown.png')
+    tab('Notifications'); pg.screenshot(path=light / '11c-notifications.png')
+
+    pg.click('.nav-row:has-text("Services")');   time.sleep(1.2)
+    pg.screenshot(path=light / '12-services.png')
+    pg.click('.nav-row:has-text("Monitoring")'); time.sleep(1.2)
+    pg.screenshot(path=light / '13-monitoring.png')
+    pg.click('.btn-primary:has-text("Add device")'); time.sleep(1.0)
+    pg.screenshot(path=light / '14-add-device.png')
+    pg.click('.btn-icon[title=Close]'); time.sleep(0.6)
+
+    # And the dark screens the first pass did not reach, so the two sets match.
+    pg.click('.segmented button[title=Dark]'); time.sleep(0.8)
+    dev('core-sw-01'); tab('VLANs');  pg.screenshot(path=out / '05b-switch-vlans.png')
+    dev('esxi-01');    tab('Storage'); pg.screenshot(path=out / '07b-server-storage.png')
+    tab('Network');    pg.screenshot(path=out / '07c-server-network.png')
+    tab('Console');    pg.screenshot(path=out / '09b-server-console.png')
+    dev('apc-rack');   tab('Shutdown'); pg.screenshot(path=out / '11b-ups-shutdown.png')
+    tab('Notifications'); pg.screenshot(path=out / '11c-notifications.png')
+
     b.close()
 
 srv.should_exit = True
