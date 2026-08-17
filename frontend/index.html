@@ -258,39 +258,73 @@
     <main class="flex-1 overflow-y-auto">
 
       <!-- Loading overlay -->
-      <div x-show="loading" class="fixed inset-0 bg-black/40 flex items-center justify-center z-40">
-        <i class="fa-solid fa-circle-notch fa-spin text-blue-400 text-3xl"></i>
+      <div x-show="loading" class="scrim">
+        <svg class="icon spinner"><use href="#i-loader-circle"/></svg>
       </div>
 
       <!-- Dashboard -->
       <template x-if="!selectedId && page !== 'services'">
-        <div class="p-6">
-          <h1 class="text-2xl font-bold text-white mb-1">Dashboard</h1>
-            <p class="text-gray-400 text-sm mb-6">All devices - <span class="text-green-400"><i class="fa-solid fa-bolt"></i> Live updates via WebSocket</span></p>
+        <div class="content-inner">
+          <div class="page-head">
+            <h1 class="t-page">Dashboard</h1>
+            <p class="sub t-muted">
+              Every device this instance manages. Readings arrive live over a WebSocket.
+            </p>
+          </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <!-- Summary tiles, all derived from the device list itself -->
+          <div class="tile-grid mb-5">
+            <div class="tile">
+              <div class="eyebrow"><svg class="icon"><use href="#i-server"/></svg>Devices</div>
+              <div class="tile-figure" :class="devices.length ? '' : 'is-empty'"
+                   x-text="devices.length || '–'"></div>
+              <div class="tile-sub">Under management here.</div>
+            </div>
+            <div class="tile">
+              <div class="eyebrow"><span class="dot dot-good"></span>Online</div>
+              <div class="tile-figure" :class="devices.length ? '' : 'is-empty'"
+                   x-text="devices.length ? devices.filter(d => d.last_seen && !d.status_error && d.status?.online !== false).length : '–'"></div>
+              <div class="tile-sub">Answered the last poll.</div>
+            </div>
+            <div class="tile">
+              <div class="eyebrow"><span class="dot dot-critical"></span>Offline</div>
+              <div class="tile-figure" :class="devices.length ? '' : 'is-empty'"
+                   x-text="devices.length ? devices.filter(d => d.last_seen && (d.status_error || d.status?.online === false)).length : '–'"></div>
+              <div class="tile-sub">Failed the last poll.</div>
+            </div>
+            <div class="tile">
+              <div class="eyebrow"><span class="dot"></span>Never polled</div>
+              <div class="tile-figure" :class="devices.length ? '' : 'is-empty'"
+                   x-text="devices.length ? devices.filter(d => !d.last_seen).length : '–'"></div>
+              <div class="tile-sub">No reading since they were added.</div>
+            </div>
+          </div>
+
+          <div class="card-grid">
             <template x-for="d in devices" :key="d.id">
-              <div @click="selectDevice(d.id)" class="bg-card border border-border rounded-lg p-4 cursor-pointer hover:border-blue-500/50 transition-colors">
-                <div class="flex items-start justify-between mb-3">
-                  <div>
-                    <div class="font-semibold text-white text-sm" x-text="d.name"></div>
-                    <div class="text-xs text-gray-500 mt-0.5" x-text="d.hostname"></div>
+              <div @click="selectDevice(d.id)" class="card is-clickable p-3">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span :class="statusDot(d)" class="dot"></span>
+                  <div class="min-w-0 flex-1">
+                    <div class="t-heading truncate" x-text="d.name"></div>
+                    <div class="t-small t-dim truncate" x-text="d.hostname"></div>
                   </div>
-                  <span :class="statusDot(d) + ' mt-1'" class="w-2.5 h-2.5 rounded-full shrink-0"></span>
                 </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded"
-                        x-text="d.adapter_type.toUpperCase()"></span>
-                  <span class="text-xs text-gray-500" x-text="d.last_seen ? relTime(d.last_seen) : 'never'"></span>
+                <div class="flex items-center justify-between gap-2 mt-3">
+                  <span class="badge" x-text="d.adapter_type.toUpperCase()"></span>
+                  <span class="figure t-tiny" x-text="d.last_seen ? relTime(d.last_seen) : 'never'"></span>
                 </div>
-                <div x-show="d.status_error" class="mt-2 text-xs text-red-400 truncate" x-text="d.status_error"></div>
-                <div x-show="deviceCardSubtitle(d)" class="mt-2 text-xs text-gray-400 truncate"
+                <div x-show="d.status_error" class="notice notice-critical mt-3">
+                  <svg class="icon"><use href="#i-circle-alert"/></svg>
+                  <span class="truncate min-w-0" x-text="d.status_error"></span>
+                </div>
+                <div x-show="deviceCardSubtitle(d)" class="t-small t-muted truncate mt-2"
                      x-text="deviceCardSubtitle(d)"></div>
               </div>
             </template>
-            <div x-show="devices.length === 0" class="col-span-full text-center text-gray-500 py-16">
-              <i class="fa-solid fa-server text-4xl mb-3"></i>
-              <p>No devices yet. Click <strong class="text-gray-300">Add Device</strong> to get started.</p>
+            <div x-show="devices.length === 0" class="col-span-full empty">
+              <svg class="icon icon-24"><use href="#i-server"/></svg>
+              <p>No devices yet. Click <strong class="t-strong">Add device</strong> to get started.</p>
             </div>
           </div>
         </div>
@@ -298,76 +332,82 @@
 
       <!-- Services (publish apps via Namecheap DNS + Nginx Proxy Manager) -->
       <template x-if="!selectedId && page === 'services'">
-        <div class="p-6">
-          <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-            <h1 class="text-2xl font-bold text-white">Services</h1>
-            <div class="flex gap-2">
-              <button @click="openIntegrationsModal()" class="btn-secondary">
-                <i class="fa-solid fa-gear mr-1"></i>Integrations
-              </button>
-              <button @click="openServiceModal()" :disabled="!integrationsReady"
-                      :title="integrationsReady ? '' : 'Configure the NPM + Namecheap integrations first'"
-                      class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
-                <i class="fa-solid fa-plus mr-1"></i>Add Service
-              </button>
+        <div class="content-inner">
+          <div class="page-head">
+            <div class="flex items-start justify-between flex-wrap gap-3">
+              <div class="min-w-0">
+                <h1 class="t-page">Services</h1>
+                <p class="sub t-muted">
+                  Publish an internal app at <span class="figure" x-text="'https://name.' + (ncDomains[0] || 'your-domain') + (ncDomains.length > 1 ? ' (+' + (ncDomains.length - 1) + ' more)' : '')"></span>.
+                  The DNS record (Namecheap), the reverse proxy and the Let's Encrypt certificate (Nginx Proxy Manager) are set up for you.
+                </p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <button @click="openIntegrationsModal()" class="btn">
+                  <svg class="icon"><use href="#i-settings"/></svg>Integrations
+                </button>
+                <button @click="openServiceModal()" :disabled="!integrationsReady"
+                        :title="integrationsReady ? '' : 'Configure the NPM + Namecheap integrations first'"
+                        class="btn btn-primary">
+                  <svg class="icon"><use href="#i-plus"/></svg>Add service
+                </button>
+              </div>
             </div>
           </div>
-          <p class="text-gray-400 text-sm mb-6">
-            Publish an internal app at <span class="font-mono text-gray-300" x-text="'https://name.' + (ncDomains[0] || 'your-domain') + (ncDomains.length > 1 ? ' (+' + (ncDomains.length - 1) + ' more)' : '')"></span> -
-            the DNS record (Namecheap), reverse proxy and Let's Encrypt certificate (Nginx Proxy Manager) are set up automatically.
-          </p>
 
           <!-- Integrations-not-configured hint -->
-          <div x-show="!integrationsReady"
-               class="bg-amber-900/20 border border-amber-700/50 rounded-lg p-4 mb-6 text-sm text-amber-200">
-            <i class="fa-solid fa-triangle-exclamation mr-1.5"></i>
-            <span x-show="!integrations.npm?.configured">Nginx Proxy Manager isn't configured yet. </span>
-            <span x-show="!integrations.namecheap?.configured">Namecheap isn't configured yet. </span>
-            Open <button @click="openIntegrationsModal()" class="underline hover:text-white">Integrations</button> to set up the connection details.
+          <div x-show="!integrationsReady" class="notice mb-5">
+            <svg class="icon"><use href="#i-triangle-alert"/></svg>
+            <div class="min-w-0">
+              <span x-show="!integrations.npm?.configured">Nginx Proxy Manager is not configured yet. </span>
+              <span x-show="!integrations.namecheap?.configured">Namecheap is not configured yet. </span>
+              Open <button @click="openIntegrationsModal()" class="btn btn-ghost btn-sm">Integrations</button> to set up the connection details.
+            </div>
           </div>
 
           <!-- Filter (worth it once the list grows) -->
-          <div x-show="services.length > 8" class="mb-3">
-            <input x-model="serviceFilter" class="input w-full max-w-sm" placeholder="Filter services…">
+          <div x-show="services.length > 8" class="search mb-3 max-w-sm">
+            <svg class="icon search-icon"><use href="#i-search"/></svg>
+            <input x-model="serviceFilter" class="input" placeholder="Filter services…">
           </div>
 
           <!-- Service list - compact one-line rows, grouped by forward host -->
           <div>
             <template x-for="g in serviceGroups" :key="g.key">
-              <div class="mb-4">
-                <div class="px-1 pb-1.5 text-xs text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                  <i class="fa-solid fa-server"></i>
-                  <span x-text="g.label"></span>
-                  <span class="text-gray-600" x-text="g.items.length"></span>
+              <div class="panel mb-3">
+                <div class="panel-head">
+                  <svg class="icon"><use href="#i-server"/></svg>
+                  <span class="title" x-text="g.label"></span>
+                  <span class="count" x-text="g.items.length"></span>
                 </div>
-                <div class="space-y-1.5">
+                <div class="panel-body flush">
             <template x-for="s in g.items" :key="s.id">
-              <div class="bg-card border border-border rounded-lg px-3 py-2">
-                <div class="flex items-center gap-3 flex-wrap">
+              <div>
+                <div class="row flex-wrap py-1">
                   <!-- state dot -->
-                  <span class="w-2.5 h-2.5 rounded-full shrink-0"
+                  <span class="dot"
                         :title="s.state"
                         :class="{
-                          'bg-green-400':              s.state === 'active',
-                          'bg-red-500':                s.state === 'error',
-                          'bg-blue-400 animate-pulse': s.state === 'provisioning' || s.state === 'pending',
+                          'dot-good':     s.state === 'active',
+                          'dot-critical': s.state === 'error',
+                          'dot-caution':  s.state === 'provisioning' || s.state === 'pending',
                         }"></span>
-                  <span class="text-sm font-medium text-white w-36 truncate shrink-0" x-text="s.name" :title="s.name"></span>
+                  <span class="t-control t-strong w-36 truncate shrink-0" x-text="s.name" :title="s.name"></span>
                   <a :href="s.url" target="_blank" rel="noopener"
-                     class="text-xs text-blue-400 hover:text-blue-300 font-mono truncate min-w-0 flex-1"
+                     class="figure t-small truncate min-w-0 flex-1"
                      x-text="s.fqdn" :title="s.url"></a>
                   <!-- host is the group header; only the port matters per row -->
-                  <span class="text-xs text-gray-500 font-mono shrink-0 hidden md:inline"
+                  <span class="figure t-tiny shrink-0 hidden md:inline"
                         x-text="'→ :' + s.forward_port"
                         :title="s.forward_scheme + '://' + s.forward_host + ':' + s.forward_port"></span>
 
                   <!-- linked container state -->
                   <template x-if="s.portainer_container">
                     <a :href="portainerUrl(s) || '#'" :target="portainerUrl(s) ? '_blank' : ''" rel="noopener"
-                       class="shrink-0 flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border border-border"
+                       class="badge shrink-0"
                        :class="containerDotClass(containerFor(s))"
                        :title="'Container: ' + s.portainer_container + (containerFor(s)?.status ? ' - ' + containerFor(s).status : '')">
-                      <i class="fa-brands fa-docker"></i>
+                      <svg class="icon"><use href="#i-docker"/></svg>
                       <span class="max-w-[8rem] truncate hidden lg:inline" x-text="s.portainer_container"></span>
                     </a>
                   </template>
@@ -375,155 +415,184 @@
                   <!-- step mini-chips: DNS / proxy / SSL -->
                   <div class="flex gap-1 shrink-0">
                     <template x-for="step in serviceSteps(s)" :key="step.key">
-                      <span class="w-5 h-5 rounded flex items-center justify-center text-[9px] border"
+                      <span class="badge"
                             :class="stepChipClass(step.status)"
                             :title="step.label + ': ' + (step.status || 'pending') + (step.detail ? ' - ' + step.detail : '')">
-                        <i class="fa-solid"
-                           :class="{ dns: 'fa-globe', proxy: 'fa-right-left', ssl: 'fa-lock' }[step.key]"></i>
+                        <svg class="icon"><use :href="{ dns: '#i-globe', proxy: '#i-arrow-right-left', ssl: '#i-lock' }[step.key]"/></svg>
                       </span>
                     </template>
                   </div>
 
                   <!-- actions -->
                   <div class="flex items-center shrink-0">
-                    <button x-show="s.state === 'error'" @click="retryService(s)" title="Retry failed steps"
-                            class="text-amber-400 hover:text-amber-300 px-1.5 py-1 rounded hover:bg-panel text-xs">
-                      <i class="fa-solid fa-rotate-right"></i>
+                    <button x-show="s.state === 'error'" @click="retryService(s)" title="Retry the failed steps"
+                            class="btn-icon">
+                      <svg class="icon"><use href="#i-rotate-cw"/></svg>
                     </button>
-                    <button @click="openServiceModal(s)" title="Edit"
-                            class="text-gray-400 hover:text-white px-1.5 py-1 rounded hover:bg-panel text-xs">
-                      <i class="fa-solid fa-pen"></i>
+                    <button @click="openServiceModal(s)" title="Edit this service"
+                            class="btn-icon">
+                      <svg class="icon"><use href="#i-pencil"/></svg>
                     </button>
-                    <button @click="deleteService(s)" title="Delete (removes DNS record + proxy host)"
-                            class="text-red-400 hover:text-red-300 px-1.5 py-1 rounded hover:bg-panel text-xs">
-                      <i class="fa-solid fa-trash"></i>
+                    <button @click="deleteService(s)" title="Delete this service. Removes the DNS record and the proxy host."
+                            class="btn-icon is-danger">
+                      <svg class="icon"><use href="#i-trash-2"/></svg>
                     </button>
                   </div>
                 </div>
                 <!-- error detail, only when something failed -->
-                <div x-show="firstServiceError(s)" class="mt-1 ml-6 text-xs text-red-300 break-words"
-                     x-text="firstServiceError(s)"></div>
+                <div x-show="firstServiceError(s)" class="notice notice-critical mx-3 mb-2">
+                  <svg class="icon"><use href="#i-circle-alert"/></svg>
+                  <span class="min-w-0 break-words" x-text="firstServiceError(s)"></span>
+                </div>
               </div>
             </template>
                 </div>
               </div>
             </template>
-            <div x-show="!services.length" class="text-center text-gray-500 py-16">
-              <i class="fa-solid fa-globe text-4xl mb-3"></i>
-              <p>No services yet. Click <strong class="text-gray-300">Add Service</strong> to publish your first app.</p>
+            <div x-show="!services.length" class="empty">
+              <svg class="icon icon-24"><use href="#i-globe"/></svg>
+              <p>No services yet. Click <strong class="t-strong">Add service</strong> to publish your first app.</p>
             </div>
-            <div x-show="services.length && !filteredServices.length" class="text-center text-gray-500 py-8 text-sm">
+            <div x-show="services.length && !filteredServices.length" class="empty">
               No services match the filter.
             </div>
           </div>
 
           <!-- NPM sync: proxy hosts that exist in NPM but aren't managed here -->
-          <div x-show="integrations.npm?.configured && (unmanagedNpmHosts.length || npmHostsError)" class="mt-8">
-            <div class="flex items-center gap-2 mb-3">
-              <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-                In Nginx Proxy Manager - not managed here
-              </h2>
-              <button @click="loadNpmHosts()" title="Refresh from NPM"
-                      class="text-gray-500 hover:text-gray-200 px-1.5 py-0.5 rounded hover:bg-card text-xs">
-                <i class="fa-solid fa-arrows-rotate"></i>
-              </button>
+          <div x-show="integrations.npm?.configured && (unmanagedNpmHosts.length || npmHostsError)" class="panel mt-6">
+            <div class="panel-head">
+              <svg class="icon"><use href="#i-file-input"/></svg>
+              <span class="title">In Nginx Proxy Manager, not managed here</span>
+              <span class="count" x-text="unmanagedNpmHosts.length"></span>
+              <div class="actions">
+                <button @click="loadNpmHosts()" title="Refresh from Nginx Proxy Manager" class="btn-icon">
+                  <svg class="icon"><use href="#i-refresh-cw"/></svg>
+                </button>
+              </div>
             </div>
-            <div x-show="npmHostsError" class="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2 mb-3"
-                 x-text="'Could not list NPM proxy hosts: ' + npmHostsError"></div>
-            <div class="space-y-2">
-              <template x-for="h in unmanagedNpmHosts" :key="h.id">
-                <div class="bg-card/60 border border-border border-dashed rounded-lg p-3 flex items-center justify-between flex-wrap gap-3">
-                  <div class="min-w-0">
-                    <div class="text-sm text-gray-200 font-mono break-all" x-text="(h.domain_names || []).join(', ')"></div>
-                    <div class="text-xs text-gray-500 mt-0.5">
-                      <span class="font-mono" x-text="'→ ' + h.forward_scheme + '://' + h.forward_host + ':' + h.forward_port"></span>
-                      <span class="ml-2" :class="h.certificate_id ? 'text-green-400' : 'text-gray-500'">
-                        <i class="fa-solid" :class="h.certificate_id ? 'fa-lock' : 'fa-lock-open'"></i>
-                        <span x-text="h.certificate_id ? 'SSL' : 'HTTP only'"></span>
-                      </span>
-                      <span x-show="!h.enabled" class="ml-2 text-amber-400">disabled in NPM</span>
+            <div class="panel-body">
+              <div x-show="npmHostsError" class="notice notice-critical mb-3">
+                <svg class="icon"><use href="#i-circle-alert"/></svg>
+                <span class="min-w-0 break-words" x-text="'Could not list NPM proxy hosts: ' + npmHostsError"></span>
+              </div>
+              <div class="flex flex-col gap-2">
+                <template x-for="h in unmanagedNpmHosts" :key="h.id">
+                  <div class="dashed p-3 flex items-center justify-between flex-wrap gap-3">
+                    <div class="min-w-0">
+                      <div class="figure t-small break-all" x-text="(h.domain_names || []).join(', ')"></div>
+                      <div class="flex items-center gap-2 flex-wrap mt-1">
+                        <span class="figure t-tiny" x-text="'→ ' + h.forward_scheme + '://' + h.forward_host + ':' + h.forward_port"></span>
+                        <span class="badge" :class="h.certificate_id ? 'badge-good' : ''">
+                          <svg class="icon"><use :href="h.certificate_id ? '#i-lock' : '#i-lock-open'"/></svg>
+                          <span x-text="h.certificate_id ? 'SSL' : 'HTTP only'"></span>
+                        </span>
+                        <span x-show="!h.enabled" class="badge badge-caution">Disabled in NPM</span>
+                      </div>
                     </div>
+                    <button @click="openImportModal(h)" class="btn shrink-0"
+                            title="Manage this proxy host from here. The existing configuration is kept.">
+                      <svg class="icon"><use href="#i-file-input"/></svg>Import
+                    </button>
                   </div>
-                  <button @click="openImportModal(h)" class="btn-secondary text-xs shrink-0"
-                          title="Manage this proxy host from here (existing config is kept)">
-                    <i class="fa-solid fa-file-import mr-1"></i>Import
-                  </button>
-                </div>
-              </template>
+                </template>
+              </div>
             </div>
           </div>
 
           <!-- DNS manager: view/add/delete records on the configured domains -->
-          <div x-show="integrations.namecheap?.configured" class="mt-8">
-            <div class="flex items-center gap-2 mb-3 flex-wrap">
-              <button @click="toggleDnsSection()" class="text-sm font-semibold text-gray-300 uppercase tracking-wide flex items-center gap-2 hover:text-white">
-                <i class="fa-solid" :class="dns.open ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
-                DNS records (Namecheap)
+          <div x-show="integrations.namecheap?.configured" class="panel mt-6">
+            <div class="panel-head">
+              <button @click="toggleDnsSection()" class="btn btn-ghost px-0">
+                <svg class="icon"><use :href="dns.open ? '#i-chevron-down' : '#i-chevron-right'"/></svg>
+                <span class="title">DNS records (Namecheap)</span>
               </button>
-              <template x-if="dns.open && dns.domains.length > 1">
-                <select x-model="dns.domain" @change="loadDnsRecords()" class="input py-1 text-xs font-mono">
-                  <template x-for="d in dns.domains" :key="d">
-                    <option :value="d" x-text="d"></option>
-                  </template>
-                </select>
-              </template>
-              <button x-show="dns.open" @click="loadDnsRecords()" title="Refresh"
-                      class="text-gray-500 hover:text-gray-200 px-1.5 py-0.5 rounded hover:bg-card text-xs">
-                <i class="fa-solid fa-arrows-rotate" :class="dns.busy && 'fa-spin'"></i>
-              </button>
+              <div class="actions">
+                <template x-if="dns.open && dns.domains.length > 1">
+                  <div class="w-44">
+                    <select x-model="dns.domain" @change="loadDnsRecords()" class="input figure">
+                      <template x-for="d in dns.domains" :key="d">
+                        <option :value="d" x-text="d"></option>
+                      </template>
+                    </select>
+                  </div>
+                </template>
+                <button x-show="dns.open" @click="loadDnsRecords()" title="Refresh the record list" class="btn-icon">
+                  <svg class="icon" :class="dns.busy && 'spinner'"><use href="#i-refresh-cw"/></svg>
+                </button>
+              </div>
             </div>
             <div x-show="dns.open">
-              <div x-show="dns.error" class="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-3 py-2 mb-3"
-                   x-text="dns.error"></div>
+              <div class="panel-body">
+                <div x-show="dns.error" class="notice notice-critical mb-3">
+                  <svg class="icon"><use href="#i-circle-alert"/></svg>
+                  <span class="min-w-0 break-words" x-text="dns.error"></span>
+                </div>
 
-              <!-- Add record -->
-              <div class="flex items-end gap-2 mb-3 flex-wrap">
-                <div>
-                  <label class="label">Type</label>
-                  <select x-model="dns.form.type" class="input py-1.5">
-                    <option value="A">A</option>
-                    <option value="CNAME">CNAME</option>
-                  </select>
+                <!-- Add record -->
+                <div class="flex items-end gap-2 flex-wrap">
+                  <div class="w-28">
+                    <label class="field-label">Type</label>
+                    <select x-model="dns.form.type" class="input">
+                      <option value="A">A</option>
+                      <option value="CNAME">CNAME</option>
+                    </select>
+                  </div>
+                  <div class="w-36">
+                    <label class="field-label">Host</label>
+                    <input x-model="dns.form.name" class="input" placeholder="sub, @ or *">
+                  </div>
+                  <div class="flex-1 min-w-[12rem]">
+                    <label class="field-label" x-text="dns.form.type === 'A' ? 'IP address' : 'Target hostname'"></label>
+                    <input x-model="dns.form.address" class="input"
+                           :placeholder="dns.form.type === 'A' ? '192.168.1.10 or public IP' : 'example.com'">
+                  </div>
+                  <button @click="addDnsRecord()" :disabled="dns.busy" class="btn btn-primary">
+                    <svg class="icon"><use href="#i-plus"/></svg>Add
+                  </button>
                 </div>
-                <div>
-                  <label class="label">Host</label>
-                  <input x-model="dns.form.name" class="input py-1.5 w-36" placeholder="sub, @ or *">
-                </div>
-                <div class="flex-1 min-w-[12rem]">
-                  <label class="label" x-text="dns.form.type === 'A' ? 'IP address' : 'Target hostname'"></label>
-                  <input x-model="dns.form.address" class="input py-1.5 w-full"
-                         :placeholder="dns.form.type === 'A' ? '192.168.1.10 or public IP' : 'example.com'">
-                </div>
-                <button @click="addDnsRecord()" :disabled="dns.busy" class="btn-primary py-1.5 disabled:opacity-50">
-                  <i class="fa-solid fa-plus mr-1"></i>Add
-                </button>
               </div>
 
               <!-- Records table -->
-              <div class="border border-border rounded-lg divide-y divide-border">
-                <template x-for="r in dns.records" :key="r.type + '|' + r.name + '|' + r.address">
-                  <div class="flex items-center gap-3 px-3 py-2 text-xs">
-                    <span class="w-14 font-mono text-gray-400" x-text="r.type"></span>
-                    <span class="font-mono text-gray-200 w-40 truncate" x-text="r.name" :title="r.name"></span>
-                    <span class="font-mono text-gray-400 flex-1 truncate" x-text="'→ ' + r.address" :title="r.address"></span>
-                    <span class="text-gray-600 w-16 text-right" x-text="'TTL ' + r.ttl"></span>
-                    <template x-if="r.service_id">
-                      <span class="text-[10px] px-1.5 py-0.5 rounded border border-blue-600/40 bg-blue-500/10 text-blue-300"
-                            :title="'Created by the service ' + r.service_name + ' - edit or delete the service instead'">
-                        <i class="fa-solid fa-link mr-1"></i><span x-text="r.service_name"></span>
-                      </span>
+              <div class="panel-body flush hairline-t tbl-wrap">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th class="w-16">Type</th>
+                      <th class="w-40">Host</th>
+                      <th>Target</th>
+                      <th></th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="r in dns.records" :key="r.type + '|' + r.name + '|' + r.address">
+                      <tr>
+                        <td class="figure" x-text="r.type"></td>
+                        <td class="figure truncate" x-text="r.name" :title="r.name"></td>
+                        <td class="figure truncate" x-text="'→ ' + r.address" :title="r.address"></td>
+                        <td class="num t-dim" x-text="'TTL ' + r.ttl"></td>
+                        <td>
+                          <div class="flex items-center justify-end gap-1">
+                            <template x-if="r.service_id">
+                              <span class="badge"
+                                    :title="'Created by the service ' + r.service_name + ' - edit or delete the service instead'">
+                                <svg class="icon"><use href="#i-link"/></svg><span x-text="r.service_name"></span>
+                              </span>
+                            </template>
+                            <template x-if="!r.service_id && ['A', 'CNAME'].includes(r.type)">
+                              <button @click="deleteDnsRecord(r)" title="Delete this record" class="btn-icon is-danger">
+                                <svg class="icon"><use href="#i-trash-2"/></svg>
+                              </button>
+                            </template>
+                            <!-- non-A/CNAME records (MX, TXT, ...) are view-only here -->
+                            <span x-show="!r.service_id && !['A', 'CNAME'].includes(r.type)" class="w-6"></span>
+                          </div>
+                        </td>
+                      </tr>
                     </template>
-                    <template x-if="!r.service_id && ['A', 'CNAME'].includes(r.type)">
-                      <button @click="deleteDnsRecord(r)" title="Delete this record"
-                              class="text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded hover:bg-panel">
-                        <i class="fa-solid fa-trash"></i>
-                      </button>
-                    </template>
-                    <!-- non-A/CNAME records (MX, TXT, ...) are view-only here -->
-                    <span x-show="!r.service_id && !['A', 'CNAME'].includes(r.type)" class="w-6"></span>
-                  </div>
-                </template>
-                <div x-show="!dns.records.length && !dns.busy" class="px-3 py-4 text-xs text-gray-500 text-center">
+                  </tbody>
+                </table>
+                <div x-show="!dns.records.length && !dns.busy" class="empty">
                   No records found.
                 </div>
               </div>
