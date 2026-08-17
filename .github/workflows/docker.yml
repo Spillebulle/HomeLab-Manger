@@ -92,26 +92,38 @@ jobs:
       contents: write   # required to create a Release
     steps:
       - name: Checkout
-        # No fetch-tags: actions/checkout@v4 already fetches the tag-as-ref on
-        # a tag push (GITHUB_REF=refs/tags/vX.Y.Z), and combining that with
-        # fetch-tags:true triggers "Cannot fetch both <sha> and refs/tags/v…"
-        # because the action tries to fetch the same ref twice. The annotated
-        # tag object (and its message body) is already present in the local
-        # repo after the default checkout.
         uses: actions/checkout@v4
 
       - name: Read tag annotation into release body
         id: tag
         shell: bash
         run: |
-          # The release-note bullets live in the annotated tag message. Pipe
-          # them into the action's body input so they show up on the Release
-          # page (the auto-generated commit log appends below).
+          # The release-note bullets live in the ANNOTATED tag message.
+          #
+          # actions/checkout resolves the tag to a SHA and leaves a LIGHTWEIGHT
+          # local tag pointing at the commit, so `%(contents)` falls back to the
+          # commit message and the bullets never reach the release page. That is
+          # exactly what v0.8.0 shipped with. Re-fetch the tag object itself so
+          # the annotation is really here before reading it.
+          git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          if [ "$(git cat-file -t "${GITHUB_REF_NAME}")" != "tag" ]; then
+            echo "::warning::${GITHUB_REF_NAME} is not an annotated tag, so the release body has no curated notes."
+          fi
           {
             echo 'body<<TAG_EOF'
-            git tag -l --format='%(contents)' "${GITHUB_REF_NAME}"
+            git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)'
             echo 'TAG_EOF'
           } >> "$GITHUB_OUTPUT"
+
+      - name: Lower-case the image names
+        id: img
+        shell: bash
+        run: |
+          # Container registries require a lower-case path, and github.repository
+          # carries the repository's actual casing (HomeLab-Manger). The push
+          # itself is fine because docker/metadata-action lower-cases, but the
+          # release body used the raw value and advertised a ref nobody can pull.
+          echo "ghcr=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -123,5 +135,5 @@ jobs:
             ---
 
             Container images:
-            - `ghcr.io/${{ github.repository }}:${{ needs.build-and-push.outputs.version }}`
+            - `${{ steps.img.outputs.ghcr }}:${{ needs.build-and-push.outputs.version }}`
             - `docker.io/${{ secrets.DOCKERHUB_USERNAME }}/homelab-manger:${{ needs.build-and-push.outputs.version }}`
