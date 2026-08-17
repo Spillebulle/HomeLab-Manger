@@ -156,106 +156,138 @@
   </defs>
 </svg>
 
-  <!-- ── Top-right info widget ──────────────────────────────────────────── -->
-  <div class="fixed top-2 right-3 z-30 flex items-center gap-3 text-xs text-gray-400 bg-panel/80 backdrop-blur-sm border border-border rounded px-2.5 py-1">
-    <span x-text="'v' + (appInfo.version || '?')"></span>
-    <a :href="appInfo.github_url || '#'" target="_blank" rel="noopener"
-       class="hover:text-white transition-colors" title="GitHub">
-      <i class="fa-brands fa-github"></i>
-    </a>
-    <a :href="appInfo.dockerhub_url || '#'" target="_blank" rel="noopener"
-       class="hover:text-white transition-colors" title="Docker Hub">
-      <i class="fa-brands fa-docker"></i>
-    </a>
-  </div>
+  <!-- ══ Shell (STYLE-GUIDE §6.2) ═════════════════════════════════════════════
+       A 34 px top bar spanning the full width, then a row of the 240 px
+       sidebar and the content. The old fixed top-right info widget is part of
+       the top bar now. -->
+  <div class="flex flex-col h-screen">
 
-  <!-- ── Layout ─────────────────────────────────────────────────────────── -->
-  <div class="flex h-screen">
+    <!-- ── Top bar ────────────────────────────────────────────────────────
+         The menu bar of the shell: identity on the left, global readouts and
+         the session-wide controls on the right. Never page navigation. -->
+    <header class="topbar">
+      <img src="/static/mark-64.png" alt="" class="topbar-mark">
+      <span class="topbar-name">HomeLab Manger</span>
 
-    <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
-    <aside class="w-60 bg-panel border-r border-border flex flex-col shrink-0">
+      <div class="flex items-center gap-3 ml-auto">
+        <span class="t-tiny figure" x-text="'v' + (appInfo.version || '?')"></span>
 
-      <!-- Logo -->
-      <div class="px-4 py-4 border-b border-border">
-        <div class="flex items-center gap-2">
-          <img src="/static/logo.png" alt="" class="h-7 w-7 object-contain shrink-0">
-          <span class="font-bold text-white">HomeLab Manger</span>
+        <a :href="appInfo.github_url || '#'" target="_blank" rel="noopener"
+           class="btn-icon" title="GitHub">
+          <svg class="icon"><use href="#i-github"/></svg>
+        </a>
+        <a :href="appInfo.dockerhub_url || '#'" target="_blank" rel="noopener"
+           class="btn-icon" title="Docker Hub">
+          <svg class="icon"><use href="#i-docker"/></svg>
+        </a>
+
+        <!-- Theme preference: three states, "system" stamps no class (§3). -->
+        <div class="segmented">
+          <button type="button" @click="setTheme('dark')"
+                  :class="theme === 'dark' ? 'is-selected' : ''" title="Dark">
+            <svg class="icon"><use href="#i-moon"/></svg>
+          </button>
+          <button type="button" @click="setTheme('light')"
+                  :class="theme === 'light' ? 'is-selected' : ''" title="Light">
+            <svg class="icon"><use href="#i-sun"/></svg>
+          </button>
+          <button type="button" @click="setTheme('system')"
+                  :class="theme === 'system' ? 'is-selected' : ''" title="Follow the system">
+            <svg class="icon"><use href="#i-monitor-cog"/></svg>
+          </button>
         </div>
-        <div class="text-xs text-gray-500 mt-1" x-text="devices.length + ' devices'"></div>
       </div>
+    </header>
 
-      <!-- Nav -->
-      <div class="flex-1 overflow-y-auto p-2">
+    <!-- ── Sidebar and content ────────────────────────────────────────────── -->
+    <div class="flex flex-1 min-h-0">
 
-        <!-- Dashboard -->
-        <button @click="_destroyUpsCharts(); selectedId = null; page = 'dashboard'; tab = 'overview'"
-                :class="(!selectedId && page === 'dashboard') ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-card hover:text-gray-200'"
-                class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm mb-1 transition-colors">
-          <i class="fa-solid fa-gauge-high w-4 text-center"></i> Dashboard
-        </button>
+      <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+      <aside class="sidebar">
 
-        <!-- Services (published apps: DNS + reverse proxy + SSL) -->
-        <button @click="openServices()"
-                :class="(!selectedId && page === 'services') ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-card hover:text-gray-200'"
-                class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm mb-1 transition-colors">
-          <i class="fa-solid fa-globe w-4 text-center"></i> Services
-        </button>
+        <!-- Head: what this install holds, nothing else. -->
+        <div class="sidebar-head" x-text="devices.length + ' devices'"></div>
 
-        <!-- Monitoring (push devices/services into Kuvasz / Uptime Kuma) -->
-        <button @click="openMonitoring()"
-                :class="(!selectedId && page === 'monitoring') ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-card hover:text-gray-200'"
-                class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm mb-1 transition-colors">
-          <i class="fa-solid fa-heart-pulse w-4 text-center"></i> Monitoring
-        </button>
+        <!-- Nav -->
+        <div class="sidebar-body">
 
-        <!-- Device groups -->
-        <template x-for="[type, devs] in deviceGroups" :key="type">
-          <div class="mb-2">
-            <div class="px-3 py-1 text-xs text-gray-500 uppercase tracking-wider"
-                 x-text="typeLabel(type)"></div>
-            <template x-for="d in devs" :key="d.id">
-              <button @click="selectDevice(d.id)"
-                      :class="selectedId === d.id ? 'bg-blue-600/20 text-blue-300' : 'text-gray-400 hover:bg-card hover:text-gray-200'"
-                      class="w-full flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors">
-                <span :class="statusDot(d)" class="w-2 h-2 rounded-full shrink-0"></span>
-                <span class="truncate flex-1 text-left" x-text="d.name"></span>
-              </button>
-            </template>
+          <div class="flex flex-col gap-0.5">
+            <!-- Dashboard -->
+            <button @click="_destroyUpsCharts(); selectedId = null; page = 'dashboard'; tab = 'overview'"
+                    :class="(!selectedId && page === 'dashboard') ? 'is-selected' : ''"
+                    class="nav-row">
+              <svg class="icon"><use href="#i-gauge"/></svg>
+              <span class="nav-label">Dashboard</span>
+            </button>
+
+            <!-- Services (published apps: DNS + reverse proxy + SSL) -->
+            <button @click="openServices()"
+                    :class="(!selectedId && page === 'services') ? 'is-selected' : ''"
+                    class="nav-row">
+              <svg class="icon"><use href="#i-globe"/></svg>
+              <span class="nav-label">Services</span>
+            </button>
+
+            <!-- Monitoring (push devices/services into Kuvasz / Uptime Kuma) -->
+            <button @click="openMonitoring()"
+                    :class="(!selectedId && page === 'monitoring') ? 'is-selected' : ''"
+                    class="nav-row">
+              <svg class="icon"><use href="#i-activity"/></svg>
+              <span class="nav-label">Monitoring</span>
+            </button>
           </div>
-        </template>
-      </div>
 
-      <!-- Add device -->
-      <div class="p-2 border-t border-border">
-        <button @click="openAddModal()"
-                class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded transition-colors">
-          <i class="fa-solid fa-plus"></i> Add Device
-        </button>
-      </div>
-
-      <!-- Account -->
-      <div class="p-2 border-t border-border flex items-center gap-2">
-        <div class="flex-1 min-w-0">
-          <div class="text-xs text-gray-500">Signed in as</div>
-          <div class="text-sm text-gray-200 truncate" x-text="username || '-'"></div>
+          <!-- Device groups -->
+          <template x-for="[type, devs] in deviceGroups" :key="type">
+            <div class="mt-4">
+              <div class="eyebrow px-3 mb-1"
+                   x-text="typeLabel(type)"></div>
+              <div class="flex flex-col gap-0.5">
+                <template x-for="d in devs" :key="d.id">
+                  <button @click="selectDevice(d.id)"
+                          :class="selectedId === d.id ? 'is-selected' : ''"
+                          class="nav-row">
+                    <span class="dot" :class="statusDot(d)"></span>
+                    <span class="nav-label" x-text="d.name"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
-        <button @click="openApiKeysModal()" title="API keys"
-                class="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-card">
-          <i class="fa-solid fa-code"></i>
-        </button>
-        <button @click="openPasswordModal()" title="Change password"
-                class="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-card">
-          <i class="fa-solid fa-key"></i>
-        </button>
-        <button @click="logout()" title="Sign out"
-                class="text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-card">
-          <i class="fa-solid fa-right-from-bracket"></i>
-        </button>
-      </div>
-    </aside>
 
-    <!-- ── Main ─────────────────────────────────────────────────────────── -->
-    <main class="flex-1 overflow-y-auto">
+        <!-- Add device: the one primary action of the shell. -->
+        <div class="hairline-t p-2 shrink-0">
+          <button @click="openAddModal()" class="btn btn-primary w-full">
+            <svg class="icon"><use href="#i-plus"/></svg> Add device
+          </button>
+        </div>
+
+        <!-- Account, then the version and licence (§12). -->
+        <div class="sidebar-foot">
+          <div class="flex items-center gap-2">
+            <div class="flex-1 min-w-0">
+              <div class="t-tiny">Signed in as</div>
+              <div class="t-small t-strong truncate" x-text="username || '-'"></div>
+            </div>
+            <button @click="openApiKeysModal()" title="API keys" class="btn-icon">
+              <svg class="icon"><use href="#i-code"/></svg>
+            </button>
+            <button @click="openPasswordModal()" title="Change password" class="btn-icon">
+              <svg class="icon"><use href="#i-key"/></svg>
+            </button>
+            <button @click="logout()" title="Sign out" class="btn-icon">
+              <svg class="icon"><use href="#i-log-out"/></svg>
+            </button>
+          </div>
+          <div class="t-tiny mt-2">
+            <span x-text="'v' + (appInfo.version || '?')"></span> · Apache-2.0
+          </div>
+        </div>
+      </aside>
+
+      <!-- ── Content ──────────────────────────────────────────────────────── -->
+      <main class="content">
 
       <!-- Loading overlay -->
       <div x-show="loading" class="fixed inset-0 bg-black/40 flex items-center justify-center z-40">
@@ -1819,8 +1851,9 @@
         </div>
       </template>
 
-    </main>
-  </div><!-- /layout -->
+      </main>
+    </div><!-- /sidebar and content -->
+  </div><!-- /shell -->
 
   <!-- ── Add / Edit Device Modal ──────────────────────────────────────────── -->
   <div x-show="showDeviceModal" x-transition class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
