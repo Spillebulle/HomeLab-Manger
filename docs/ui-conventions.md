@@ -9,26 +9,35 @@ what the class vocabulary is, and how the old markup maps onto the new.
 
 ## What this app sets
 
-The accent hue is 255. `--accent` is raised off the guide's stock recipe so it
-lands on exactly `#3987E5`, the blue the logo is drawn in:
+The accent hue is 77.5. `--accent` is raised off the guide's stock recipe so it
+lands on exactly `#D99700`, the orange the logo is drawn in:
 
 | Token | Dark | Light |
 |---|---|---|
-| `--accent-h` | 255 | 255 |
-| `--accent` | `oklch(0.622 0.161 255)` = `#3987E5` | `oklch(0.55 0.160 255)` |
-| `--accent-dim` | `oklch(0.447 0.097 255)` | `oklch(0.79 0.058 255)` |
+| `--accent-h` | 77.5 | 77.5 |
+| `--accent` | `oklch(0.723 0.151 77.5)` = `#D99700` | `oklch(0.55 0.110 77.5)` |
+| `--accent-dim` | `oklch(0.447 0.091 77.5)` | `oklch(0.79 0.043 77.5)` |
 
-Everything else derives, so the system holds: two constants changed in
+The light theme cannot reuse the dark lightness and chroma. `#D99700` scores
+only 2.31:1 on light chrome, under the 3:1 floor, and `oklch(0.55 0.12 77.5)`
+falls outside sRGB. The light accent is the same hue re-stepped darker, which is
+how the ladder is meant to work.
+
+Hue 77.5 sits about 10 degrees from Umber's ochre (67.5). The guide asks that
+sibling apps not share an accent. This one is close, and that was a deliberate
+call so the mark and the accent match.
+
+Everything else derives, so the system holds: a few constants changed in
 `frontend/static/tokens.css`, no colour hard-coded into a component. Measured
 contrast, against the floors in §2.6 (accent on chrome 3:1, accent-ink on accent
 4.5:1):
 
 | | backdrop | window | dock | chrome | control |
 |---|---|---|---|---|---|
-| dark accent | 5.30 | 5.15 | 5.03 | 4.88 | 4.47 |
-| light accent | | 4.16 | 4.28 | 4.51 | 3.98 |
+| dark accent | 7.71 | 7.48 | 7.30 | 7.09 | 6.50 |
+| light accent | | 4.19 | 4.30 | 4.54 | 4.01 |
 
-`accent-ink` on `accent` is 5.15 dark, 4.90 light.
+`accent-ink` on `accent` is 7.48 dark, 4.93 light.
 
 ## Files
 

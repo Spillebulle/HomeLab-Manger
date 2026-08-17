@@ -19,21 +19,30 @@
 
 :root {
   /* ── The app's accent ───────────────────────────────────────────────────
-     HomeLab Manger is hue 255. The guide's stock recipe is
-     oklch(0.674 0.101 H); we raise L/C so --accent lands on exactly #3987E5,
-     the brand blue the logo is drawn in. Everything else still derives from
-     --accent / --accent-h, so the system is intact: this is two constants
+     HomeLab Manger is hue 77.5. The guide's stock recipe is
+     oklch(0.674 0.101 H); we raise L/C so --accent lands on exactly #D99700,
+     the orange the logo is drawn in. Everything else still derives from
+     --accent / --accent-h, so the system is intact: this is a few constants
      changed, not a colour hard-coded into a component.
+
+     The light theme cannot use the same L/C: #D99700 scores only 2.31:1 on
+     light chrome, under the 3:1 floor, and oklch(0.55 0.12 77.5) falls outside
+     sRGB. The light accent is therefore the same hue re-stepped darker, which
+     is how the ladder is meant to work.
 
      Measured against the surfaces it is drawn on (floor 3:1 for accent on
      chrome, 4.5:1 for accent-ink on accent):
-       dark  accent on backdrop 5.30  window 5.15  dock 5.03  chrome 4.88  control 4.47
-       light accent on chrome   4.51  window 4.16  dock 4.28  control 3.98
-       accent-ink on accent     dark 5.15   light 4.90
+       dark  accent on backdrop 7.71  window 7.48  dock 7.30  chrome 7.09  control 6.50
+       light accent on chrome   4.54  window 4.19  dock 4.30  control 4.01
+       accent-ink on accent     dark 7.48   light 4.93
+
+     Note for the family: hue 77.5 sits about 10 degrees from Umber's ochre
+     (67.5). The guide asks that sibling apps not share an accent; this one is
+     close, and that was a deliberate call so the mark and the accent match.
      ───────────────────────────────────────────────────────────────────── */
-  --accent-h: 255;
-  --accent-l: 0.622;   /* dark theme lightness  */
-  --accent-c: 0.161;   /* dark theme chroma     */
+  --accent-h: 77.5;
+  --accent-l: 0.723;   /* dark theme lightness  */
+  --accent-c: 0.151;   /* dark theme chroma     */
 
   /* ── Type ──────────────────────────────────────────────────────────────── */
   --font-ui: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -124,7 +133,7 @@
 
   /* Accent */
   --accent:          oklch(var(--accent-l) var(--accent-c) var(--accent-h));
-  --accent-dim:      oklch(0.447 0.097 var(--accent-h));
+  --accent-dim:      oklch(0.447 0.091 var(--accent-h));
   --accent-ink:      var(--window);
   --accent-tint:     color-mix(in oklab, var(--accent) 7%, transparent);
   --accent-ring:     color-mix(in oklab, var(--accent) 35%, transparent);
@@ -175,8 +184,8 @@
     --text-muted:     oklch(0.526 0.007 75);
     --text-dim:       oklch(0.634 0.008 81);
     --placeholder:    oklch(0.72 0.008 81);
-    --accent:         oklch(0.55 0.160 var(--accent-h));
-    --accent-dim:     oklch(0.79 0.058 var(--accent-h));
+    --accent:         oklch(0.55 0.110 var(--accent-h));
+    --accent-dim:     oklch(0.79 0.043 var(--accent-h));
     --accent-ink:     #FFFFFF;
     --caution:        oklch(0.518 0.114 39);
     --caution-bg:     oklch(0.943 0.018 49);
@@ -216,8 +225,8 @@
   --text-muted:     oklch(0.526 0.007 75);
   --text-dim:       oklch(0.634 0.008 81);
   --placeholder:    oklch(0.72 0.008 81);
-  --accent:         oklch(0.55 0.160 var(--accent-h));
-  --accent-dim:     oklch(0.79 0.058 var(--accent-h));
+  --accent:         oklch(0.55 0.110 var(--accent-h));
+  --accent-dim:     oklch(0.79 0.043 var(--accent-h));
   --accent-ink:     #FFFFFF;
   --caution:        oklch(0.518 0.114 39);
   --caution-bg:     oklch(0.943 0.018 49);
