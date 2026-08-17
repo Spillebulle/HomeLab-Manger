@@ -23,6 +23,7 @@
 .t-page     { font-size: var(--text-page);    font-weight: 600; color: var(--text-strong); text-wrap: balance; }
 .t-heading  { font-size: var(--text-heading); font-weight: 600; color: var(--text-strong); text-wrap: balance; }
 .t-body     { font-size: var(--text-body);    color: var(--text); }
+.t-card-title { font-size: var(--text-body); font-weight: 600; color: var(--text-strong); }
 .t-control  { font-size: var(--text-control); color: var(--text); }
 .t-small    { font-size: var(--text-small);   color: var(--text); }
 .t-tiny     { font-size: var(--text-tiny);    color: var(--text-dim); }
@@ -135,6 +136,16 @@ a:hover { text-decoration: underline; }
 .btn:disabled, .btn[disabled], .btn.is-disabled { opacity: .45; cursor: not-allowed; }
 .btn:disabled:hover, .btn[disabled]:hover { background: var(--control); color: var(--text); }
 
+/* The modifiers below are meant to sit alongside `.btn`, but the old markup
+   used them on their own. Give them the same geometry so a lone `.btn-primary`
+   is still a button rather than a coloured word. */
+.btn-primary, .btn-outline, .btn-ghost, .btn-danger, .btn-secondary, .btn-action {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  height: var(--h-button); padding: 0 var(--s3); border-radius: var(--r-ctl);
+  border: var(--hairline) solid transparent;
+  font: 400 var(--text-control)/1 var(--font-ui); white-space: nowrap; cursor: pointer;
+  transition: background var(--t-hover), color var(--t-hover), border-color var(--t-hover);
+}
 .btn-primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; border-color: transparent; }
 .btn-primary:hover { background: color-mix(in oklab, var(--accent) 88%, var(--text-strong)); color: var(--accent-ink); }
 .btn-primary:disabled:hover, .btn-primary[disabled]:hover { background: var(--accent); color: var(--accent-ink); }
@@ -501,3 +512,18 @@ select.input option { background: var(--popover); color: var(--text); }
 .surface-chrome  { background: var(--chrome); }
 .surface-backdrop{ background: var(--backdrop); }
 [x-cloak] { display: none !important; }
+
+/* ══ Ink, last word ═════════════════════════════════════════════════════════
+   `.figure` sets an ink of its own so a bare readout is strong. That made a
+   mono value in another rank unreachable, because `.figure` is declared after
+   the `.t-*` classes and equal specificity is decided by source order. Ink is
+   restated here, at the end, so `class="figure t-accent"` and friends resolve
+   to the rank you asked for. Colour last, so colour wins. */
+.t-strong   { color: var(--text-strong); }
+.t-body     { color: var(--text); }
+.t-muted    { color: var(--text-muted); }
+.t-dim      { color: var(--text-dim); }
+.t-accent   { color: var(--accent); }
+.t-good     { color: var(--good); }
+.t-caution  { color: var(--caution); }
+.t-critical { color: var(--critical); }
