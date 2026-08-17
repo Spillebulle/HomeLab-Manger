@@ -160,6 +160,32 @@ on battery, was shut down by the outage plan. Each device can post those to a
 Discord webhook, with separate switches for offline, UPS state and shutdown
 actions.
 
+## Interface
+
+<img align="right" width="300" src="docs/images/ups-graphs.png" alt="The UPS graphs tab: four charts, each a single line on a hairline grid, with a visible gap where polling stopped">
+
+Dense and quiet: 12 px type, hairline rules, one accent that only ever means
+selected, in hand or primary, and semantic colour reserved for state. Numbers are
+monospaced so a column lines up and a reading does not jitter as it changes. A
+chart draws a real gap where polling stopped rather than interpolating across it.
+
+Dark, light, or follow the system. The interface follows
+[the house design principles](docs/ui-conventions.md), and the typeface and icons
+are bundled rather than fetched, so it works on a network with no route out.
+
+## Themes
+
+A theme is a file. Import one, edit the colours, export it, and hand it to
+somebody else. The format is `.umbertheme`, shared with the other apps built to
+the same principles, so a theme made here opens there and one made there opens
+here.
+
+A file carries 27 colours and everything else is derived from them, which is what
+keeps it portable. Graphite and Paper ship built in and are read-only; your own
+live in `themes/` beside the database, one ordinary file each. A line that cannot
+be read costs that one colour rather than the file, and the app says how many it
+skipped.
+
 ## What is not there yet
 
 | Not there | Detail |
@@ -170,6 +196,7 @@ actions.
 | Uptime Kuma | It has no management API, only a socket protocol, so it is listed and disabled rather than half-working. |
 | Serial-over-USB UPSes | Only the HID power device class is read. Megatec and Voltronic units that answer `Q1` over a serial bridge are not supported. |
 | Other DNS and proxy providers | Service publishing is Namecheap and Nginx Proxy Manager only, over HTTP-01. There is no DNS challenge. |
+| A theme for the app icon | The interface follows an imported theme, but the favicon and the banner are files baked at build time and keep the app's own colour. |
 | Routers and PDUs | Only through the generic SNMP adapter. There is no vendor adapter for either, and no device can be powered off through a PDU. |
 
 ## Configuration

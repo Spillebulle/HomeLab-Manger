@@ -3172,11 +3172,8 @@
                   <div class="panel-body flush">
                     <template x-for="k in g.keys" :key="k">
                       <div class="row row-sep" style="gap: var(--s3);">
-                        <span style="width: 16px; height: 16px; border-radius: var(--r-tight);
-                                     border: 1px solid var(--line-popover); flex: 0 0 auto;"
-                              :style="'background: ' + (themeModal.colours[k] || '#000000') +
-                                      '; width:16px; height:16px; border-radius:var(--r-tight);' +
-                                      ' border:1px solid var(--line-popover); flex:0 0 auto;'"></span>
+                        <span class="theme-swatch"
+                              :style="{ background: themeModal.colours[k] || 'var(--control)' }"></span>
                         <span class="t-control flex-1 min-w-0 truncate" x-text="k"></span>
                         <input type="text" class="input figure"
                                style="width: 108px; height: 22px; text-transform: uppercase;"

@@ -39,8 +39,12 @@ CLAUDE.md
 package-lock.json
 node_modules/
 
-# Local screenshot fixtures
+# Local screenshot fixtures (SQLite writes -shm/-wal sidecars too)
 shots.db
+shots.db-*
+smoke.db
+smoke.db-*
+oui.csv
 
 # Theme library (runtime data; lives beside the DB in the /data volume)
 themes/

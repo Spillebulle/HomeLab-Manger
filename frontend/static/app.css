@@ -396,6 +396,13 @@ select.input option { background: var(--popover); color: var(--text); }
 .dot-unknown  { background: var(--text-dim); }
 .dot-accent   { background: var(--accent); }
 
+/* A swatch in the theme editor. The colour itself is user data and is the one
+   place a literal belongs; the geometry is the family's. */
+.theme-swatch {
+  width: 16px; height: 16px; flex: 0 0 auto; border-radius: var(--r-tight);
+  border: var(--hairline) solid var(--line-popover); display: inline-block;
+}
+
 /* ══ Modals and popovers (§7.17) ════════════════════════════════════════════ */
 .scrim {
   position: fixed; inset: 0; z-index: 40;

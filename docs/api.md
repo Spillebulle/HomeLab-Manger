@@ -665,3 +665,79 @@ curl -sX POST "$BASE/api/devices/1/port/5/action" -H "Authorization: Bearer $KEY
   authoritative reference for those.
 - **Single user, no scoping** - every key has full admin access. Rotate by
   deleting and recreating.
+
+---
+
+## Themes
+
+A theme is a file in the family's `.umbertheme` format, so a theme made in this
+app opens unchanged in the others. The format is specified in the house style
+guide; what matters for the API is that a file stores **27 colours** and every
+other colour in the interface is **derived** from them.
+
+`tokens` on a read is the derived table, ready to apply: the caller sets those
+custom properties and needs no colour knowledge of its own.
+
+### `GET /api/themes`
+
+Everything the picker can offer.
+
+```json
+{
+  "themes": [
+    {"id": "graphite", "name": "Graphite", "base": "graphite", "scheme": "dark",  "builtin": true,  "skipped": 0},
+    {"id": "paper",    "name": "Paper",    "base": "paper",    "scheme": "light", "builtin": true,  "skipped": 0},
+    {"id": "nord-night", "name": "Nord Night", "base": "graphite", "scheme": "dark", "builtin": false, "skipped": 0}
+  ],
+  "groups": [{"label": "Surfaces", "keys": ["backdrop", "window", "dock", "chrome", "popover"]}],
+  "keys": ["backdrop", "window", "..."],
+  "extension": ".umbertheme"
+}
+```
+
+`scheme` is `dark` or `light` and comes from the theme's `base`, never from
+measuring its colours. `skipped` is how many lines of that file could not be
+read; those colours came from its base.
+
+### `GET /api/themes/{id}`
+
+One theme, with both the stored `colours` (the 27, by file key) and the derived
+`tokens` (every CSS custom property, by name).
+
+### `GET /api/themes/{id}/export`
+
+The file itself, as `text/plain` with a `Content-Disposition` attachment. Every
+key is written even where it equals the base's value, so what leaves is complete.
+Works for the built-ins too.
+
+### `POST /api/themes/import`
+
+`multipart/form-data` with a `file` part. The **first line** decides whether the
+upload is a theme, not its extension or its name, so anything can be offered. A
+file that is not a theme is refused with `400` and a sentence.
+
+```json
+{"ok": true, "theme": {"id": "nord-night", "...": "..."}, "skipped": 2,
+ "detail": "2 lines could not be read, so those colours came from the theme it names as its base."}
+```
+
+A name already in the library gets a number rather than replacing a theme
+somebody built.
+
+### `POST /api/themes`
+
+Copy a theme. `{"from": "graphite", "name": "My theme", "colours": {...}}`. All
+three are optional. This is the only way to create one, which is what keeps the
+shipped themes out of the library where an update would replace them.
+
+### `PUT /api/themes/{id}`
+
+`{"name": "...", "base": "graphite", "colours": {"backdrop": "#101010"}}`. Only
+the keys supplied change. The **id is never re-derived from the name**, so a
+rename cannot orphan a preference pointing at it. `400` for a built-in: Graphite
+and Paper are read-only.
+
+### `DELETE /api/themes/{id}`
+
+Removes the file. `400` for a built-in.
+

@@ -94,3 +94,19 @@ list at container start and the UPS disappears the first time it re-enumerates.
 Network-only installations do not need either flag. If a UPS is not found,
 `GET /api/devices/{id}/usb-diagnostics` reports which device nodes the
 container can actually see.
+
+## Themes
+
+Themes are files, not settings. The library is a directory beside the database:
+
+| Path | What it is |
+|---|---|
+| `<DB_PATH dir>/themes/` | One `.umbertheme` file per theme you have imported or made. Ordinary files; copy them out or hand them to somebody. |
+
+Nothing shipped lives there. Graphite and Paper are compiled into the app and are
+read-only, so an update can never replace something you edited. Deleting the
+directory loses your themes and nothing else; the app falls back to Graphite.
+
+The format is shared with the other apps built to the same design principles, so
+a theme moves between them unchanged. `docs/ui-conventions.md` covers what the
+interface is made of.
