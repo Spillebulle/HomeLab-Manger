@@ -48,3 +48,10 @@ oui.csv
 
 # Theme library (runtime data; lives beside the DB in the /data volume)
 themes/
+
+# The screenshot review set. `python docs/shots.py docs/images` writes every
+# screen in both themes as NN-name.png (plus light/), and copies the five the
+# README and Docker Hub description reference to their plain names. Only those
+# five are committed; the rest are there to look at before a release.
+docs/images/[0-9]*.png
+docs/images/light/

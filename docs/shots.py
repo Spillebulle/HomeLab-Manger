@@ -9,15 +9,23 @@ Usage, from the repository root:
     python docs/seed-demo.py          # writes shots.db with demo devices
     python docs/shots.py docs/images  # writes the pictures
 
+Delete shots.db first if it already exists: seed-demo.py appends rather than
+replacing, so a second run on the same file gives you eight devices.
+
 The database it reads is a throwaway fixture. It never touches /data.
 """
-import os, sys, threading, time, pathlib
+import os, sys, shutil, threading, time, pathlib
 root = str(pathlib.Path(__file__).resolve().parent.parent); os.chdir(root); sys.path.insert(0, root)
 os.environ['DB_PATH'] = os.path.join(root, 'shots.db')
 os.environ['ADMIN_PASSWORD'] = 'smoketest123'
 os.environ['POLL_INTERVAL'] = '100000'          # keep the poller off our seeded cache
 import uvicorn
 from playwright.sync_api import sync_playwright
+from docs.demo_stubs import serve as serve_demo_stubs
+
+# Stand-in NPM and Portainer, so the Services page has something real on it.
+# seed-demo.py points the integration rows at this.
+serve_demo_stubs()
 
 srv = uvicorn.Server(uvicorn.Config('backend.main:app', host='127.0.0.1', port=8211, log_level='error'))
 threading.Thread(target=srv.run, daemon=True).start()
@@ -28,7 +36,10 @@ errors = []
 
 with sync_playwright() as pw:
     b = pw.chromium.launch()
-    ctx = b.new_context(viewport={'width': 1500, 'height': 1000}, device_scale_factor=2)
+    # §17.3: 1400-1600 px wide at 100 % scale. Render at 1x so what this
+    # script writes is exactly what gets committed — a hand-downscale between
+    # here and docs/images is a step that goes stale without anyone noticing.
+    ctx = b.new_context(viewport={'width': 1500, 'height': 1000}, device_scale_factor=1)
     pg = ctx.new_page()
     pg.on('console', lambda m: errors.append(f'{m.type}: {m.text}') if m.type == 'error' else None)
     pg.on('pageerror', lambda e: errors.append(f'pageerror: {e}'))
@@ -115,6 +126,23 @@ with sync_playwright() as pw:
     tab('Notifications'); pg.screenshot(path=out / '11c-notifications.png')
 
     b.close()
+
+# The pictures README.md and docs/DOCKERHUB.md point at, under the names they
+# use. Copied from the numbered set above rather than shot again, so the
+# README's picture and the walkthrough's picture can never disagree.
+# Each one is a screen with real content on it: a tab showing an error card or
+# an empty table is not a picture of the app working (§17.3).
+README_SHOTS = {
+    'dashboard.png':    '01-dashboard.png',
+    'ports-switch.png': '03-switch-ports.png',
+    'server.png':       '07-server-hardware.png',
+    'services.png':     '12-services.png',
+    'ups-graphs.png':   '11-ups-graphs.png',
+}
+for name, src in README_SHOTS.items():
+    shutil.copyfile(out / src, out / name)
+    size = (out / name).stat().st_size / 1024
+    print(f'  {name:18} {size:6.0f} KB' + ('   OVER 500 KB (§17.3)' if size > 500 else ''))
 
 srv.should_exit = True
 print('shots written to', out)

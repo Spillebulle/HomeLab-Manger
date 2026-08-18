@@ -101,7 +101,7 @@ driven through its web interface, because neither exposes them any other way.
 
 ## Servers and BMCs
 
-<img align="right" width="380" src="docs/images/server.png" alt="A server's Overview tab: tabs for hardware, storage, network, power, sensors and console, over cards for model, serial, power state and memory, and a row of power buttons">
+<img align="right" width="380" src="docs/images/server.png" alt="A server's Hardware tab: the CPUs pane with a card per processor giving model, core count, thread count and clock, beside panes for memory and PCIe, under tabs for storage, network, power, sensors and console">
 
 HP iLO, Dell iDRAC, Huawei iBMC and Cisco UCS C-series. Inventory down to the
 DIMM, live sensors and per-PSU wattage, power actions, and a KVM launch that

@@ -13,7 +13,7 @@ import os, json, datetime
 os.environ['DB_PATH'] = os.path.join(os.getcwd(), 'shots.db')
 os.environ['ADMIN_PASSWORD'] = 'smoketest123'
 from backend.database import init_db, SessionLocal
-from backend.models import Device, DeviceCache, DeviceMetric
+from backend.models import Device, DeviceCache, DeviceMetric, Integration, Service
 from backend.timeutil import utcnow
 init_db()
 db = SessionLocal()
@@ -35,8 +35,13 @@ add("core-sw-01", "10.0.0.2", "dlink", "switch", {
     "status": {"online": True, "sysName": "core-sw-01", "sysDescr": "D-Link DGS-3120-48PC",
                "uptime": "42 days, 3:14", "firmware": "R4.00.B021", "ipOrigin": "manual"},
     "ports": ports,
-    "poe": {"ports": [{"key": f"poe-{i}", "portIndex": i, "powerClass": 3 if i % 4 == 0 else None,
-                       "detectionStatus": "delivering" if i % 4 == 0 else "disabled",
+    "poe": {"ports": [{"key": f"poe-{i}",
+                       # A string, like both adapters emit - the frontend
+                       # looks PoE up by String(portIndex) and an int here
+                       # silently renders every PoE state as absent.
+                       "portIndex": str(i), "powerClass": 3 if i % 4 == 0 else None,
+                       "detectionStatus": ("fault" if i in (16, 34) else
+                                          "delivering" if i % 4 == 0 else "disabled"),
                        "powerWatts": 6.4 if i % 4 == 0 else None, "adminEnabled": True,
                        "maxPowerMilliwatts": 30000} for i in range(1, 49)],
             "totalPowerWatts": 370, "consumptionWatts": 76.8},
@@ -105,5 +110,40 @@ for h in range(24 * 60 // 5):
                         ("runtime_sec", 2820 if h > 170 or h < 140 else 1500 + h),
                         ("input_voltage", 232 + random.uniform(-3, 3))]:
         db.add(DeviceMetric(device_id=ups.id, metric=metric, value=round(val, 2), ts=ts))
+
+# ── Services page ──────────────────────────────────────────────────────────
+# The integrations point at docs/demo_stubs.py, which docs/shots.py starts.
+# Without them the Services page is two "not configured yet" warnings over an
+# empty state, which is not a picture of the app working (§17.3).
+from docs.demo_stubs import BASE_URL as _STUB
+
+for name, cfg in [
+    ("npm", {"base_url": _STUB, "email": "admin@example.net",
+             "password": "demo", "le_email": "admin@example.net"}),
+    ("namecheap", {"api_user": "demo", "api_key": "demo", "username": "demo",
+                   "client_ip": "203.0.113.10", "domain": "example.net"}),
+    ("portainer", {"base_url": _STUB, "api_key": "demo"}),
+]:
+    db.add(Integration(name=name, config=cfg))
+
+# Two of the stub's five proxy hosts are managed here; the other three are what
+# the sync section offers to import.
+def svc(name, sub, host, port, hid, container, endpoint):
+    db.add(Service(
+        name=name, subdomain=sub, domain="example.net",
+        forward_scheme="http", forward_host=host, forward_port=port,
+        websockets=True, block_exploits=True, caching_enabled=False,
+        ssl_forced=True, http2_support=True, hsts_enabled=False,
+        hsts_subdomains=False,
+        portainer_container=container, portainer_endpoint_id=endpoint,
+        npm_proxy_host_id=hid, npm_certificate_id=hid + 20,
+        dns_record_type="CNAME", dns_record_target="example.net",
+        dns_status="ok", npm_status="ok", cert_status="ok", state="active",
+        created_at=now))
+
+svc("Jellyfin",  "jellyfin",  "10.0.0.41", 8096, 11, "jellyfin",  1)
+svc("Paperless", "paperless", "10.0.0.42", 8000, 12, "paperless", 2)
+
 db.commit()
+
 print("seeded:", db.query(Device).count(), "devices,", db.query(DeviceMetric).count(), "metric samples")
