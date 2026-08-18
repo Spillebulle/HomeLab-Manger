@@ -71,7 +71,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Sync README to Docker Hub
+      - name: Sync description to Docker Hub
         # Was `github.ref == 'refs/heads/main'` — but main pushes don't
         # trigger this workflow anymore, so re-anchor on tag pushes.
         if: startsWith(github.ref, 'refs/tags/v')
@@ -80,6 +80,14 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ secrets.DOCKERHUB_USERNAME }}/homelab-manger
+          # NOT README.md. Docker Hub renders Markdown and strips raw HTML, and
+          # `enable-url-completion` only rewrites relative URLs written in
+          # Markdown syntax — so the README's <picture> banner and its
+          # align="right" <img> screenshots reached Docker Hub verbatim, with
+          # src="docs/images/…" resolving against hub.docker.com. Every image
+          # except the one Markdown ![](…) was broken. docs/DOCKERHUB.md is the
+          # same content in pure Markdown; keep the two in step by hand.
+          readme-filepath: ./docs/DOCKERHUB.md
           short-description: "FastAPI app for managing homelab gear — switches, servers, BMCs"
           enable-url-completion: true
 
