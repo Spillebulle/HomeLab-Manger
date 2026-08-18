@@ -7,12 +7,6 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/license/Spillebulle/homelab-manger?style=flat-square" alt="Licence">
-  <img src="https://img.shields.io/github/v/release/Spillebulle/homelab-manger?style=flat-square" alt="Release">
-  <img src="https://img.shields.io/docker/pulls/spillebulle/homelab-manger?style=flat-square" alt="Docker pulls">
-</p>
-
-<p align="center">
   One page for <b>the whole rack</b>: switches, servers, BMCs and UPSes, each read over the protocol it already speaks.
 </p>
 
