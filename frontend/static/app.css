@@ -67,12 +67,12 @@ a:hover { text-decoration: underline; }
    token rather than a baked-in colour. That way it follows an imported theme
    instead of disagreeing with it. */
 .topbar-mark {
-  width: 15px; height: 15px; flex: 0 0 auto; display: block;
+  width: var(--mark); height: var(--mark); flex: 0 0 auto; display: block;
   background: var(--accent);
   -webkit-mask: url("/static/mark-64.png") center / contain no-repeat;
           mask: url("/static/mark-64.png") center / contain no-repeat;
 }
-.topbar-name { font-size: var(--text-body); font-weight: 600; color: var(--text-strong); }
+.topbar-name { font-size: var(--text-heading); font-weight: 700; color: var(--text-strong); }
 
 .sidebar {
   width: var(--w-sidebar); flex: 0 0 var(--w-sidebar);
@@ -92,12 +92,19 @@ a:hover { text-decoration: underline; }
   font-size: var(--text-tiny); color: var(--text-dim);
 }
 
-/* Nav row (§6.2). Selected is a neutral fill plus a 3 px accent bar. */
+/* Nav row (§6.2). Selected is a neutral fill plus a 3 px accent bar.
+
+   The controls below all set line-height 1.2, not 1. A fixed-height flex
+   control centres its own content, so the line-height only decides how tall
+   the text's own box is — and at 1 that box is exactly the em, so a truncating
+   child (`overflow: hidden`) shears the descenders off g, p and y. It survived
+   at the desktop scale's 11.5 px and stopped surviving at the web scale's 13.
+   Anything with a `truncate` child needs room under the baseline. */
 .nav-row {
   position: relative; display: flex; align-items: center; gap: var(--s2);
-  width: 100%; height: var(--h-tabstrip); padding: 0 var(--pad-strip);
+  width: 100%; height: var(--h-nav); padding: 0 var(--pad-strip);
   border-radius: var(--r-ctl); border: 0; background: transparent;
-  font: 400 var(--text-control)/1 var(--font-ui); color: var(--text-muted);
+  font: 400 var(--text-control)/1.2 var(--font-ui); color: var(--text-muted);
   text-align: left; cursor: pointer; transition: background var(--t-hover), color var(--t-hover);
 }
 .nav-row:hover { background: var(--control-hover); color: var(--text); }
@@ -106,7 +113,7 @@ a:hover { text-decoration: underline; }
 .nav-row.is-selected .icon { color: var(--text-strong); }
 .nav-row.is-selected::before {
   content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-  width: 3px; height: 16px; border-radius: 0 2px 2px 0; background: var(--accent);
+  width: 3px; height: var(--icon); border-radius: 0 2px 2px 0; background: var(--accent);
 }
 .nav-row .nav-label { flex: 1 1 auto; min-width: 0; overflow: hidden;
                       text-overflow: ellipsis; white-space: nowrap; }
@@ -144,7 +151,7 @@ a:hover { text-decoration: underline; }
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
   height: var(--h-button); padding: 0 var(--s3); border-radius: var(--r-ctl);
   border: var(--hairline) solid transparent; background: var(--control); color: var(--text);
-  font: 400 var(--text-control)/1 var(--font-ui); white-space: nowrap; cursor: pointer;
+  font: 400 var(--text-control)/1.2 var(--font-ui); white-space: nowrap; cursor: pointer;
   transition: background var(--t-hover), color var(--t-hover), border-color var(--t-hover);
 }
 .btn:hover { background: var(--control-hover); color: var(--text-strong); }
@@ -158,7 +165,7 @@ a:hover { text-decoration: underline; }
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
   height: var(--h-button); padding: 0 var(--s3); border-radius: var(--r-ctl);
   border: var(--hairline) solid transparent;
-  font: 400 var(--text-control)/1 var(--font-ui); white-space: nowrap; cursor: pointer;
+  font: 400 var(--text-control)/1.2 var(--font-ui); white-space: nowrap; cursor: pointer;
   transition: background var(--t-hover), color var(--t-hover), border-color var(--t-hover);
 }
 .btn-primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; border-color: transparent; }
@@ -174,27 +181,27 @@ a:hover { text-decoration: underline; }
 .btn-danger { background: var(--critical-bg); border-color: color-mix(in oklab, var(--critical) 40%, transparent); color: var(--critical); }
 .btn-danger:hover { background: var(--critical-bg); border-color: var(--critical); color: var(--critical); }
 
-.btn-sm { height: 22px; padding: 0 var(--s2); font-size: var(--text-tiny); }
+.btn-sm { height: var(--h-button-sm); padding: 0 var(--s2); font-size: var(--text-tiny); }
 
-/* Icon button: 26 px square, always tooltipped. */
+/* Icon button: a --h-button square (26, 32 at web scale), always tooltipped. */
 .btn-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; padding: 0; border: 0; border-radius: var(--r-ctl);
+  width: var(--h-button); height: var(--h-button); padding: 0; border: 0; border-radius: var(--r-ctl);
   background: transparent; color: var(--text-muted); cursor: pointer;
   transition: background var(--t-hover), color var(--t-hover);
 }
 .btn-icon:hover { background: var(--control-hover); color: var(--text-strong); }
 .btn-icon:disabled { opacity: .45; cursor: not-allowed; }
 .btn-icon:disabled:hover { background: transparent; color: var(--text-muted); }
-.btn-icon.sm { width: 20px; height: 20px; }
+.btn-icon.sm { width: var(--h-button-sm); height: var(--h-button-sm); }
 .btn-icon.is-danger:hover { color: var(--critical); }
 
 /* ══ Fields (§7.11) ═════════════════════════════════════════════════════════ */
 .field, .input, select.input, textarea.input {
-  display: block; width: 100%; height: var(--h-button);
+  display: block; width: 100%; height: var(--h-field);
   padding: 0 var(--s3); border-radius: var(--r-tool);
   background: var(--field); border: var(--hairline) solid var(--line);
-  color: var(--text); font: 400 var(--text-control)/1 var(--font-ui);
+  color: var(--text); font: 400 var(--text-control)/1.2 var(--font-ui);
   transition: border-color var(--t-hover), box-shadow var(--t-hover);
 }
 textarea.input { height: auto; padding: var(--s2) var(--s3); line-height: var(--lh); resize: vertical; }
@@ -206,7 +213,7 @@ textarea.input { height: auto; padding: var(--s2) var(--s3); line-height: var(--
 .field-label { display: block; font-size: var(--text-control); color: var(--text); margin-bottom: var(--s1); }
 
 .search { position: relative; }
-.search .input { padding-left: 30px; }
+.search .input { padding-left: calc(var(--icon) + var(--s3) + var(--s1)); }
 .search .search-icon { position: absolute; left: var(--s2); top: 50%; transform: translateY(-50%);
                        color: var(--text-dim); pointer-events: none; }
 
@@ -227,7 +234,7 @@ select.input option { background: var(--popover); color: var(--text); }
 /* ══ Checkbox (§7.12) ═══════════════════════════════════════════════════════ */
 .check {
   appearance: none; -webkit-appearance: none; flex: 0 0 auto;
-  width: 16px; height: 16px; border-radius: var(--r-tight);
+  width: var(--icon); height: var(--icon); border-radius: var(--r-tight);
   background: var(--field); border: var(--hairline) solid var(--line);
   cursor: pointer; position: relative; transition: background var(--t-hover), border-color var(--t-hover);
 }
@@ -272,9 +279,10 @@ select.input option { background: var(--popover); color: var(--text); }
 }
 .segmented > button {
   display: inline-flex; align-items: center; gap: 6px;
-  height: 22px; padding: 0 10px; border: 0; border-radius: 4px;
+  height: calc(var(--h-button) - 4px); padding: 0 10px; border: 0;
+  border-radius: calc(var(--r-ctl) - 1px);
   background: transparent; color: var(--text-muted);
-  font: 400 var(--text-small)/1 var(--font-ui); white-space: nowrap; cursor: pointer;
+  font: 400 var(--text-small)/1.2 var(--font-ui); white-space: nowrap; cursor: pointer;
   transition: background var(--t-hover), color var(--t-hover);
 }
 .segmented > button:hover { color: var(--text); }
@@ -399,7 +407,7 @@ select.input option { background: var(--popover); color: var(--text); }
 /* A swatch in the theme editor. The colour itself is user data and is the one
    place a literal belongs; the geometry is the family's. */
 .theme-swatch {
-  width: 16px; height: 16px; flex: 0 0 auto; border-radius: var(--r-tight);
+  width: var(--icon); height: var(--icon); flex: 0 0 auto; border-radius: var(--r-tight);
   border: var(--hairline) solid var(--line-popover); display: inline-block;
 }
 
@@ -497,7 +505,7 @@ select.input option { background: var(--popover); color: var(--text); }
 /* An unknown total gets an empty track and a sentence beside it. Never an
    animation over something we cannot measure. */
 
-.spinner { width: 16px; height: 16px; color: var(--text-dim); animation: hl-spin 1s linear infinite; }
+.spinner { width: var(--icon); height: var(--icon); color: var(--text-dim); animation: hl-spin 1s linear infinite; }
 @keyframes hl-spin { to { transform: rotate(360deg); } }
 
 .skeleton { background: var(--control); border-radius: var(--r-ctl); animation: hl-shimmer 1.6s ease-in-out infinite; }
@@ -512,9 +520,12 @@ select.input option { background: var(--popover); color: var(--text); }
 .empty .icon { color: var(--line-dashed); }
 
 /* ══ Icons (§11) ════════════════════════════════════════════════════════════ */
-.icon { width: 16px; height: 16px; flex: 0 0 auto; display: inline-block; vertical-align: -3px; }
-.icon-20 { width: 20px; height: 20px; }
-.icon-24 { width: 24px; height: 24px; vertical-align: -6px; }
+/* Sizes are tokens so the web step (§6.5) reaches them: 16/20/24 on the
+   desktop scale, 18/22/28 here. The class names keep the desktop numbers
+   they were christened with; the token is what decides. */
+.icon { width: var(--icon); height: var(--icon); flex: 0 0 auto; display: inline-block; vertical-align: -3px; }
+.icon-20 { width: var(--icon-lg); height: var(--icon-lg); }
+.icon-24 { width: var(--icon-xl); height: var(--icon-xl); vertical-align: -6px; }
 
 /* ══ Charts (§8) ════════════════════════════════════════════════════════════ */
 /* Chart.js is fed these tokens at render time; see chartTokens() in the SPA.
@@ -530,7 +541,7 @@ select.input option { background: var(--popover); color: var(--text); }
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
   height: var(--h-button); padding: 0 var(--s3); border-radius: var(--r-ctl);
   border: var(--hairline) solid transparent; background: var(--control); color: var(--text);
-  font: 400 var(--text-control)/1 var(--font-ui); cursor: pointer;
+  font: 400 var(--text-control)/1.2 var(--font-ui); cursor: pointer;
   transition: background var(--t-hover), color var(--t-hover);
 }
 .btn-secondary:hover { background: var(--control-hover); color: var(--text-strong); }
@@ -538,7 +549,7 @@ select.input option { background: var(--popover); color: var(--text); }
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
   height: var(--h-button); padding: 0 var(--s3); border-radius: var(--r-ctl);
   border: var(--hairline) solid transparent; background: var(--control); color: var(--text);
-  font: 400 var(--text-control)/1 var(--font-ui); cursor: pointer;
+  font: 400 var(--text-control)/1.2 var(--font-ui); cursor: pointer;
   transition: background var(--t-hover), color var(--t-hover);
 }
 .btn-action:hover { background: var(--control-hover); color: var(--text-strong); }

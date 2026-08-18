@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- HomeLab Manger is a hosted web app, so it stamps the web scale
+     (STYLE-GUIDE.md §6.5). Nothing else is stamped here; the theme
+     class is added by the script below. -->
+<html lang="en" class="web">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,10 +14,11 @@
        sign-in page does not flash a different theme than the one behind it. -->
   <script>
     (function () {
+      var r = document.documentElement;
       try {
         var t = localStorage.getItem('hlm-theme') || 'dark';
-        if (t === 'dark' || t === 'light') document.documentElement.className = t;
-      } catch (e) { document.documentElement.className = 'dark'; }
+        if (t === 'dark' || t === 'light') r.classList.add(t);
+      } catch (e) { r.classList.add('dark'); }
     })();
   </script>
 

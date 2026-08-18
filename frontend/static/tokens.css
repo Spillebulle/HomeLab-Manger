@@ -2,47 +2,47 @@
  * House design tokens — HomeLab Manger.
  *
  * Vendored from ../../Design-Principles/tokens.css. Do not edit the neutral
- * ladder, the type scale or the sizes here: they are the family's and a change
- * belongs upstream. The only project-local part is the accent block below.
+ * ladder, the type scale, the artwork ladder or the sizes here: they are the
+ * family's and a change belongs upstream. The only project-local parts are the
+ * accent block below, the two `-line` extras noted where they sit, and
+ * `--icon-xl`, each marked LOCAL.
+ *
+ * HomeLab Manger is a hosted web application, so <html> carries class="web"
+ * and the WEB SCALE block at the bottom of this file is live: chrome and the
+ * things you aim at are one step up from the desktop numbers. See
+ * ../../Design-Principles/STYLE-GUIDE.md §6.5. Components never read that
+ * class — they ask for --h-button, --icon, --mark and so on.
  *
  * Three theme states, structurally:
  *   bare :root                                   dark   (the default)
  *   @media (prefers-color-scheme: light) guarded system light
  *   .light / [data-theme="light"]                forced light
  * A token must appear in the dark block AND BOTH light blocks. One defined only
- * under the media query breaks forced-light, and vice versa. Components never
- * read the class.
+ * under the media query breaks forced-light, and vice versa.
  *
  * Never write a hex in a component. If a colour is missing, add the token here.
  * See ../../Design-Principles/STYLE-GUIDE.md §2.
  */
 
 :root {
-  /* ── The app's accent ───────────────────────────────────────────────────
-     HomeLab Manger is hue 77.5. The guide's stock recipe is
-     oklch(0.674 0.101 H); we raise L/C so --accent lands on exactly #D99700,
-     the orange the logo is drawn in. Everything else still derives from
-     --accent / --accent-h, so the system is intact: this is a few constants
-     changed, not a colour hard-coded into a component.
+  /* ── The app's accent ───────────────────────────────────────  LOCAL ───
+     Set with `python docs/set-accent.py "#RRGGBB"` — never by hand. That
+     script rewrites --accent-h/-l/-c and both light --accent lines here, then
+     recolours the mark, the favicons and the banner from the same value.
 
-     The light theme cannot use the same L/C: #D99700 scores only 2.31:1 on
-     light chrome, under the 3:1 floor, and oklch(0.55 0.12 77.5) falls outside
-     sRGB. The light accent is therefore the same hue re-stepped darker, which
-     is how the ladder is meant to work.
+     The guide's stock recipe is oklch(0.674 0.101 H); we carry an explicit
+     L and C instead so --accent can land on the exact colour the logo is
+     drawn in. Everything else still derives from --accent / --accent-h, so the
+     system is intact: constants, not a colour hard-coded into a component.
 
-     Measured against the surfaces it is drawn on (floor 3:1 for accent on
-     chrome, 4.5:1 for accent-ink on accent):
-       dark  accent on backdrop 7.71  window 7.48  dock 7.30  chrome 7.09  control 6.50
-       light accent on chrome   4.54  window 4.19  dock 4.30  control 4.01
-       accent-ink on accent     dark 7.48   light 4.93
-
-     Note for the family: hue 77.5 sits about 10 degrees from Umber's ochre
-     (67.5). The guide asks that sibling apps not share an accent; this one is
-     close, and that was a deliberate call so the mark and the accent match.
+     The light theme cannot reuse the dark L/C — a colour bright enough on
+     graphite is too pale on paper and often outside sRGB — so the light accent
+     is the same hue re-stepped darker. set-accent.py enforces the 3:1 floor
+     for accent on chrome and 4.5:1 for accent-ink on accent.
      ───────────────────────────────────────────────────────────────────── */
   --accent-h: 349.1;
-  --accent-l: 0.628;   /* dark theme lightness  */
-  --accent-c: 0.221;   /* dark theme chroma     */
+  --accent-l: 0.628;   /* dark theme lightness */
+  --accent-c: 0.221;   /* dark theme chroma    */
 
   /* ── Type ──────────────────────────────────────────────────────────────── */
   --font-ui: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -53,37 +53,76 @@
   --text-control: 11.5px;    /* button labels, row labels, list items */
   --text-small:   11px;      /* menu items, secondary rows */
   --text-tiny:    10.5px;    /* figures, status bar, chips, eyebrows */
-  --text-page:    15px;      /* a page/pane heading */
+  --text-page:    15px;      /* a page/pane heading inside a dialog or settings screen */
   --text-display: 64px;      /* the wordmark, splash only */
   --lh: 1.35;
 
   /* ── Space & shape ─────────────────────────────────────────────────────── */
   --s1: 4px;  --s2: 8px;  --s3: 12px;  --s4: 16px;  --s5: 24px;  --s6: 32px;
   --r-tight: 3px;   /* keycaps, badges, the logo mark */
-  --r-ctl:   5px;   /* buttons, chips, swatches */
-  --r-tool:  6px;   /* tool buttons (32px), wells, inset previews */
-  --r-card:  8px;   /* cards, tiles, popovers, menus */
+  --r-ctl:   5px;   /* buttons, chips, swatches, tool buttons (32px) use 6 */
+  --r-tool:  6px;
+  --r-card:  8px;   /* cards, tiles, popovers, menus, wells */
   --r-modal: 10px;  /* dialogs, floating panels */
 
   --hairline: 1px;
   --dash: 5px; --dash-gap: 4px;   /* every dashed mark in the family */
 
-  /* ── Chrome heights ────────────────────────────────────────────────────── */
-  --h-menubar: 34px;   /* hosted top bar */
-  --h-tabstrip: 30px;
+  /* ── Artwork: pictures of the thing itself, not icons and not chrome ───── */
+  --r-art:    6px;    /* artwork corner, whatever the size */
+  --art-row:  40px;   /* a landscape (16/9) thumb inline in a list row */
+                      /* A row carrying a picture is sized BY the picture: art height + 8. */
+  --art-tile: 100px;  /* a dense rail: picture beside text */
+  --art-card: 150px;  /* the browse card: ONE step per page (STYLE-GUIDE.md §7.21) */
+  --art-hero: 260px;  /* the single big piece on a detail page */
+  --avatar:   28px;   /* a person, round */
+  --art-ratio: 2 / 3; /* portrait artwork; landscape art is 16 / 9 */
+  --art-lift: 3px;    /* how far a card rises under the pointer */
+
+  /* Text laid ON artwork keeps the picture's own contrast in both themes, so
+     these two are black in both: a light-theme scrim would erase the picture. */
+  --scrim-art:  linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.70) 30%, rgba(0,0,0,.32) 58%, rgba(0,0,0,0) 100%);
+  --scrim-flat: rgba(0,0,0,.38);   /* even wash under text over a wide backdrop */
+  --ink-art:     #FFFFFF;                    /* text on artwork, both themes */
+  --ink-art-dim: rgba(255,255,255,.72);      /* its second rank */
+
+  /* A backdrop image joins the page over a LONG ramp: the picture is whole at
+     the top and reaches the ground only at the bottom. A fast fade eats the
+     picture you went to the trouble of loading. §7.22. */
+  --fade-backdrop: linear-gradient(to bottom,
+      transparent 0%,
+      color-mix(in oklab, var(--backdrop) 12%, transparent) 46%,
+      color-mix(in oklab, var(--backdrop) 55%, transparent) 74%,
+      color-mix(in oklab, var(--backdrop) 88%, transparent) 90%,
+      var(--backdrop) 100%);
+  --fade-edge: linear-gradient(to right,
+      var(--backdrop) 0%,
+      color-mix(in oklab, var(--backdrop) 60%, transparent) 40%,
+      transparent 78%);
+
+  /* ── Chrome heights (desktop and hosted alike) ─────────────────────────── */
+  --h-menubar: 34px;   /* menu bar / hosted top bar */
+  --h-tabstrip: 30px;  /* document tab strip; a tab in it is 24 */
   --h-toolbar: 36px;   /* options strip / toolbar */
-  --h-status: 26px;
-  --h-panelhead: 32px; /* panel header */
+  --h-status: 26px;    /* status bar */
+  --h-panelhead: 32px; /* docked module header */
   --h-row: 26px;       /* a list row with a picture */
   --h-row-plain: 20px; /* a list row that is only text */
   --h-dropdown: 18px;
   --h-button: 26px;
-  --h-bottomnav: 52px;
-  --w-panel: 264px;
-  --w-sidebar: 240px;  /* the navigation column */
+  --h-button-sm: 22px; /* LOCAL: the small control rank (.btn-sm, .btn-icon.sm). Not upstream yet. */
+  --h-bottomnav: 52px; /* mobile bar navigation */
+  --w-panel: 264px;    /* a docked module / sidebar column */
+  --w-sidebar: 240px;  /* hosted app navigation column */
   --w-toolrail: 100px;
-  --pad-strip: 12px;
+  --h-nav: 30px;       /* a sidebar navigation row */
+  --h-field: 26px;     /* text field, search well */
+  --pad-strip: 12px;   /* horizontal padding inside every strip */
   --pad-panel: 12px;
+  --mark: 15px;        /* the app mark in the bar: rounded square, accent, no glyph */
+  --icon: 16px;        /* icon in a row or a button */
+  --icon-lg: 20px;     /* icon in a panel header */
+  --icon-xl: 24px;     /* LOCAL: icon in an empty state (§11). Not upstream yet. */
 
   /* ── Shadows: only things that float cast one ──────────────────────────── */
   --shadow-menu:  0 8px 32px rgba(0,0,0,.6);
@@ -91,65 +130,65 @@
   --shadow-modal: 0 24px 64px rgba(0,0,0,.7);
   --shadow-knob:  0 0 3px rgba(0,0,0,.8);
 
-  /* ── Motion ────────────────────────────────────────────────────────────── */
+  /* ── Motion ─────────────────────────────────────────────────────────────── */
   --t-hover: 80ms;
   --t-open: 160ms;
   --ease: cubic-bezier(.22,1,.36,1);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   DARK — Graphite. The default.
+   DARK — Graphite. The default for desktop tools and dashboards.
    ══════════════════════════════════════════════════════════════════════════ */
 :root {
   color-scheme: dark;
 
-  /* Surfaces, darkest to lightest. Cool grey, hue 264, chroma <= .008. */
-  --backdrop:        oklch(0.164 0.005 264);
-  --window:          oklch(0.182 0.004 264);
-  --dock:            oklch(0.195 0.004 264);
-  --chrome:          oklch(0.209 0.004 264);
-  --popover:         oklch(0.227 0.006 271);
+  /* Surfaces, darkest to lightest. Cool grey, hue 264, chroma ≤ .008. */
+  --backdrop:        oklch(0.164 0.005 264);  /* behind the work: canvas pit, page ground        #0D0E10 */
+  --window:          oklch(0.182 0.004 264);  /* panel interiors, wells, dialog body             #111214 */
+  --dock:            oklch(0.195 0.004 264);  /* the docked column / sidebar                     #141517 */
+  --chrome:          oklch(0.209 0.004 264);  /* menu bar, strips, panel headers, cards          #17181A */
+  --popover:         oklch(0.227 0.006 271);  /* menus, tooltips                                 #1B1C1F */
 
   /* Lines */
-  --line-soft:       oklch(0.243 0.006 258);
-  --line:            oklch(0.276 0.006 258);
-  --line-popover:    oklch(0.301 0.008 264);
-  --line-dashed:     oklch(0.359 0.010 261);
+  --line-soft:       oklch(0.243 0.006 258);  /* row separators inside a list                    #1E2023 */
+  --line:            oklch(0.276 0.006 258);  /* the hairline: every strip and panel edge        #26282B */
+  --line-popover:    oklch(0.301 0.008 264);  /* menu and modal edge                             #2C2E32 */
+  --line-dashed:     oklch(0.359 0.010 261);  /* neutral dashed outline (empty state)            #3A3D42 */
 
   /* Controls */
-  --control:         oklch(0.244 0.006 271);
-  --control-hover:   oklch(0.276 0.006 258);
-  --control-active:  oklch(0.29 0.012 var(--accent-h));
-  --rail:            oklch(0.276 0.006 258);
-  --knob:            oklch(0.928 0.003 265);
-  --field:           var(--dock);
+  --control:         oklch(0.244 0.006 271);  /* resting button, selected list row              #1F2023 */
+  --control-hover:   oklch(0.276 0.006 258);  /*                                                #26282B */
+  --control-active:  oklch(0.29 0.012 var(--accent-h)); /* selected tool / segment: accent-warmed neutral */
+  --rail:            oklch(0.276 0.006 258);  /* slider track                                    #26282B */
+  --knob:            oklch(0.928 0.003 265);  /* slider knob                                     #E6E7E9 */
+  --field:           var(--dock);             /* text field / search well                                */
 
   /* Text, four ranks. Never invent a fifth. */
-  --text-strong:     oklch(0.928 0.003 265);
-  --text:            oklch(0.841 0.005 258);
-  --text-muted:      oklch(0.695 0.008 261);
-  --text-dim:        oklch(0.622 0.008 261);
-  --placeholder:     oklch(0.481 0.009 261);
+  --text-strong:     oklch(0.928 0.003 265);  /* titles, selected labels, figures                #E6E7E9 */
+  --text:            oklch(0.841 0.005 258);  /* body                                            #C9CBCE */
+  --text-muted:      oklch(0.695 0.008 261);  /* unselected nav, secondary                       #9A9DA2 */
+  --text-dim:        oklch(0.622 0.008 261);  /* status bar, notes, disabled                     #84878C */
+  --placeholder:     oklch(0.481 0.009 261);  /* input hint, eyebrow labels                      #5B5E63 */
 
-  /* Accent */
+  /* Accent — derived from --accent-h. Umber ochre at h=68 gives #C08A4E / #6B4E2E. */
   --accent:          oklch(var(--accent-l) var(--accent-c) var(--accent-h));
-  --accent-dim:      oklch(0.447 0.133 var(--accent-h));
-  --accent-ink:      var(--window);
-  --accent-tint:     color-mix(in oklab, var(--accent) 7%, transparent);
-  --accent-ring:     color-mix(in oklab, var(--accent) 35%, transparent);
+  --accent-dim:      oklch(0.447 0.133 var(--accent-h));   /* dashed outlines, quiet marks */
+  --accent-ink:      var(--window);                        /* text ON an accent fill */
+  --accent-tint:     color-mix(in oklab, var(--accent) 7%, transparent);   /* selected card wash */
+  --accent-ring:     color-mix(in oklab, var(--accent) 35%, transparent);  /* focus ring */
 
-  /* Semantic. Separate from the accent, used for STATE only. */
-  --caution:         oklch(0.693 0.096 38);
-  --caution-bg:      oklch(0.245 0.023 42);
-  --caution-line:    oklch(0.424 0.068 35);
+  /* Semantic. Separate from the accent, muted, used for STATE only. */
+  --caution:         oklch(0.693 0.096 38);   /* #D08770 — conflict, look at this */
+  --caution-bg:      oklch(0.245 0.023 42);   /* #2A1D18 */
+  --caution-line:    oklch(0.424 0.068 35);   /* #6E4034 */
   --good:            oklch(0.70 0.10 145);
   --good-bg:         oklch(0.245 0.025 145);
-  --good-line:       oklch(0.424 0.070 145);
-  --critical:        oklch(0.66 0.13 22);
+  --good-line:       oklch(0.424 0.070 145);  /* LOCAL: notice edge, the -bg's own line */
+  --critical:        oklch(0.66 0.13 22);     /* only for down / failed / destructive */
   --critical-bg:     oklch(0.245 0.03 22);
-  --critical-line:   oklch(0.424 0.090 22);
+  --critical-line:   oklch(0.424 0.090 22);   /* LOCAL */
 
-  /* Categorical chart series. Never the accent as one of several. */
+  /* Categorical chart series (six, told apart from each other and from any accent). */
   --series-1: #3F7BE8; --series-2: #46B04A; --series-3: #A96BE8;
   --series-4: #1FB5B5; --series-5: #EE5AA8; --series-6: #F0D53C;
   --grid:            var(--line-soft);
@@ -158,44 +197,49 @@
 
 /* ══════════════════════════════════════════════════════════════════════════
    LIGHT — Paper. Warm greys, hue 82. Same ladder, same ranks.
-   The two blocks below are duplicates on purpose: one for the OS preference
-   when nothing is stamped, one for the forced choice.
+   Applied by <html class="light">, data-theme="light", or the OS preference
+   when nothing is stamped.
    ══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: light) {
+  :root:not(.dark):not([data-theme="dark"]) { --light: 1; }
+}
+:root.light, :root[data-theme="light"] { --light: 1; }
+
 @media (prefers-color-scheme: light) {
   :root:not(.dark):not([data-theme="dark"]) {
     color-scheme: light;
-    --backdrop:       oklch(0.908 0.010 82);
-    --window:         oklch(0.944 0.007 81);
-    --dock:           oklch(0.953 0.007 81);
-    --chrome:         oklch(0.971 0.006 85);
+    --backdrop:       oklch(0.908 0.010 82);   /* #E4E0D9 */
+    --window:         oklch(0.944 0.007 81);   /* #EFECE7 */
+    --dock:           oklch(0.953 0.007 81);   /* #F2EFEA */
+    --chrome:         oklch(0.971 0.006 85);   /* #F7F5F1 */
     --popover:        #FFFFFF;
     --line-soft:      oklch(0.915 0.008 82);
-    --line:           oklch(0.890 0.010 82);
+    --line:           oklch(0.890 0.010 82);   /* #DEDAD3 */
     --line-popover:   oklch(0.890 0.010 82);
     --line-dashed:    oklch(0.80 0.012 82);
-    --control:        oklch(0.929 0.009 85);
-    --control-hover:  oklch(0.896 0.010 82);
+    --control:        oklch(0.929 0.009 85);   /* #EAE7E1 */
+    --control-hover:  oklch(0.896 0.010 82);   /* #E0DCD5 */
     --control-active: oklch(0.909 0.020 var(--accent-h));
     --rail:           oklch(0.890 0.010 82);
     --knob:           #FFFFFF;
     --field:          #FFFFFF;
-    --text-strong:    oklch(0.342 0.004 68);
+    --text-strong:    oklch(0.342 0.004 68);   /* #3A3836 */
     --text:           oklch(0.342 0.004 68);
-    --text-muted:     oklch(0.526 0.007 75);
-    --text-dim:       oklch(0.634 0.008 81);
+    --text-muted:     oklch(0.526 0.007 75);   /* #6D6A66 */
+    --text-dim:       oklch(0.634 0.008 81);   /* #8D8A85 */
     --placeholder:    oklch(0.72 0.008 81);
     --accent:         oklch(0.59 0.221 var(--accent-h));
     --accent-dim:     oklch(0.79 0.080 var(--accent-h));
     --accent-ink:     #FFFFFF;
-    --caution:        oklch(0.518 0.114 39);
-    --caution-bg:     oklch(0.943 0.018 49);
-    --caution-line:   oklch(0.832 0.042 51);
+    --caution:        oklch(0.518 0.114 39);   /* #9E4E33 */
+    --caution-bg:     oklch(0.943 0.018 49);   /* #F7E9E2 */
+    --caution-line:   oklch(0.832 0.042 51);   /* #DFC1B0 */
     --good:           oklch(0.50 0.11 145);
     --good-bg:        oklch(0.94 0.03 145);
-    --good-line:      oklch(0.83 0.05 145);
+    --good-line:      oklch(0.83 0.05 145);   /* LOCAL */
     --critical:       oklch(0.50 0.14 22);
     --critical-bg:    oklch(0.94 0.03 22);
-    --critical-line:  oklch(0.83 0.06 22);
+    --critical-line:  oklch(0.83 0.06 22);    /* LOCAL */
     --series-1: #2A5AB4; --series-2: #2E7C33; --series-3: #7742AE;
     --series-4: #137F7F; --series-5: #B0326E; --series-6: #7E760A;
     --shadow-menu:  0 8px 32px rgba(40,30,10,.18);
@@ -233,10 +277,10 @@
   --caution-line:   oklch(0.832 0.042 51);
   --good:           oklch(0.50 0.11 145);
   --good-bg:        oklch(0.94 0.03 145);
-  --good-line:      oklch(0.83 0.05 145);
+  --good-line:      oklch(0.83 0.05 145);   /* LOCAL */
   --critical:       oklch(0.50 0.14 22);
   --critical-bg:    oklch(0.94 0.03 22);
-  --critical-line:  oklch(0.83 0.06 22);
+  --critical-line:  oklch(0.83 0.06 22);    /* LOCAL */
   --series-1: #2A5AB4; --series-2: #2E7C33; --series-3: #7742AE;
   --series-4: #137F7F; --series-5: #B0326E; --series-6: #7E760A;
   --shadow-menu:  0 8px 32px rgba(40,30,10,.18);
@@ -244,13 +288,78 @@
   --shadow-modal: 0 24px 64px rgba(40,30,10,.25);
 }
 
-/* ── The house typeface. Bundled, never a CDN. ────────────────────────────── */
-@font-face {
-  font-family: "Archivo";
-  src: url("/static/fonts/Archivo.ttf") format("truetype-variations");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
+/* ══════════════════════════════════════════════════════════════════════════
+   WEB SCALE — hosted web applications only.  <html class="web">
+   ══════════════════════════════════════════════════════════════════════════
+   A desktop tool is used at arm's length by somebody who is in it all day, so
+   it is dense on purpose. A hosted app is read in a browser tab, further away,
+   on a screen that is usually larger and often touched. Same language, one
+   step up: the things you AIM AT grow ~125 %, the top bar (the one place the
+   app says its name) grows ~150 %, and text grows less than either, because a
+   125 % button with 100 % text looks empty and 125 % prose reads as a
+   document. STYLE-GUIDE.md §6.5.
+
+   What does NOT change, ever: the colour ladder, the hairline, the dash, the
+   4/8 px fine grid, the shadows, the motion durations, the four text ranks,
+   and every rule about where the accent goes. This is a scale, not a
+   different language. Desktop apps never stamp it.
+
+   Written without :root so a page may show a web-scaled region inside a
+   desktop-scaled document (the living guide does exactly that).
+   ══════════════════════════════════════════════════════════════════════════ */
+.web, [data-platform="web"] {
+  /* Type: one step, ~115 %. Still four ranks; still no fifth. */
+  --text-heading: 15px;
+  --text-body:    14px;
+  --text-control: 13px;
+  --text-small:   12.5px;
+  --text-tiny:    11.5px;
+  --text-page:    18px;
+
+  /* Space above the fine grid. --s1 and --s2 stay 4 and 8. */
+  --s3: 14px;  --s4: 20px;  --s5: 30px;  --s6: 40px;
+  --pad-strip: 16px;
+  --pad-panel: 16px;
+
+  /* Radius grows with size, so it moves up one notch with the controls.
+     --r-tight stays 3: a keycap is a keycap. */
+  --r-ctl:   6px;
+  --r-tool:  8px;
+  --r-card: 10px;
+  --r-modal: 12px;
+  --r-art:   8px;
+
+  /* Things you aim at: ~125 %. */
+  --h-button:  32px;   /* 26 */
+  --h-button-sm: 26px; /* 22 — LOCAL, see above */
+  --h-field:   32px;   /* 26 */
+  --h-nav:     38px;   /* 30 */
+  --h-row:     32px;   /* 26 */
+  --h-row-plain: 26px; /* 20 */
+  --h-dropdown: 22px;  /* 18 */
+  --h-toolbar: 44px;   /* 36 */
+  --h-panelhead: 40px; /* 32 */
+  --h-tabstrip: 38px;  /* 30 */
+  --h-status:  32px;   /* 26 */
+  --h-bottomnav: 56px; /* 52 — already a touch target */
+  --icon:      18px;   /* 16 */
+  --icon-lg:   22px;   /* 20 */
+  --icon-xl:   28px;   /* 24 — LOCAL, see above */
+
+  /* The top bar: ~150 %, and the mark with it. The app gets to say its name. */
+  --h-menubar: 52px;   /* 34 */
+  --mark:      22px;   /* 15 */
+
+  /* Columns follow the type they hold rather than the 125 %. */
+  --w-sidebar: 280px;  /* 240 */
+  --w-panel:   300px;  /* 264 */
+
+  /* Artwork is content: it takes the step too. */
+  --art-row:   48px;
+  --art-tile: 120px;
+  --art-card: 180px;
+  --art-hero: 320px;
+  --avatar:    36px;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────────── */
@@ -262,10 +371,7 @@ body {
   font: var(--text-body)/var(--lh) var(--font-ui);
   -webkit-font-smoothing: antialiased;
 }
-.figure, .num, .mono {
-  font-family: var(--font-figure);
-  font-variant-numeric: tabular-nums;
-}
+.figure, .num { font-family: var(--font-figure); font-size: var(--text-tiny); font-variant-numeric: tabular-nums; }
 :focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent-ring); border-radius: var(--r-ctl); }
 ::placeholder { color: var(--placeholder); }
 ::-webkit-scrollbar { width: 6px; height: 6px; }

@@ -1,6 +1,7 @@
 # UI conventions
 
-Dated 2026-08-17. What the interface is made of, so that a change made in one
+Dated 2026-08-17, revised 2026-08-18 for the web scale. What the interface is
+made of, so that a change made in one
 part of the SPA looks like it came from the same hand as every other part.
 
 The rules themselves live in `../../Design-Principles/STYLE-GUIDE.md`. This page
@@ -37,11 +38,39 @@ Two things it warns about for the present colour, both accepted:
   draws today. The rule that actually protects the accent is that it is never
   used as one of several series, and that still holds.
 
+## The scale: this app is at web scale
+
+`<html>` carries **`class="web"`**, and that is the only thing stamped there by
+hand. HomeLab is a hosted web application, so STYLE-GUIDE §6.5 applies: the top
+bar is 52 px with a 22 px mark, the things you aim at (buttons, fields, nav
+rows, list rows) are ~125 % of the desktop numbers, type is ~115 %, and the
+radii move up one notch. Nothing else changes - same colours, same hairline,
+same 4/8 px grid, same shadows, same rules about the accent.
+
+Three things follow from that, and each has cost time already:
+
+- **Components never read the class.** A component asks for `--h-button`,
+  `--icon`, `--mark`. A `.web .thing { … }` rule in `app.css` means a token is
+  missing, not that a special case is needed.
+- **Never assign `document.documentElement.className`.** The theme is added and
+  removed with `classList`, through `_stampTheme()` in the SPA and `classList.add`
+  in the pre-paint script in the `<head>`. A wholesale assignment drops `web` and
+  silently returns the whole interface to the desktop sizes.
+- **A fixed-height control needs line-height above 1.** The control font
+  shorthands in `app.css` set `/1.2`. At `/1` the text's box is exactly the em,
+  so any `truncate` child shears the descenders off g, p and y - which survived
+  at 11.5 px and stopped surviving at 13.
+
+Three size tokens in `tokens.css` are marked `LOCAL` because the family's file
+does not carry them yet: `--icon-xl` (the empty-state icon, §11's 24/28) and
+`--h-button-sm` (the small control rank, `.btn-sm` and `.btn-icon.sm`). If
+Design-Principles adopts them, delete the local ones.
+
 ## Files
 
 | File | What it holds |
 |---|---|
-| `frontend/static/tokens.css` | The tokens. Vendored from Design-Principles; only the accent block is ours. |
+| `frontend/static/tokens.css` | The tokens. Vendored from Design-Principles; the accent block, `--good-line`/`--critical-line` and the two `LOCAL` size tokens are ours. |
 | `frontend/static/app.css` | Every component in §7 drawn once, in plain CSS against the tokens. |
 | `frontend/static/fonts/Archivo.ttf` | The house typeface, bundled. Never a CDN. |
 | `frontend/index.html` | The SPA. The icon sprite is inline at the top of `<body>`. |
@@ -160,12 +189,29 @@ The four ad-hoc colours and the Tailwind palette are both gone:
   why, or do not draw it. A progress bar never animates over an unknown total.
 - **No data is an en dash**, never a zero.
 
+**One documented exception**, and it stays one: the switch **front panel** fills
+each port tile with `--good` when the link is up, instead of the neutral tile
+plus dot that §15.7 asks for. It was asked for directly, and the reason is that
+a 6 px dot does not carry link state across 48 ports at a glance. The corner dot
+is then left to PoE alone: `--caution` while delivering, `--critical` on a
+fault, absent otherwise. A faulted tile *also* takes a `--critical` edge,
+because `--caution` and `--critical` resolve to `#D08770` and `#D66F6E` and a
+6 px dot cannot tell those two apart. It is still semantic colour and still
+never the accent. Do not copy the pattern to any other grid.
+
 ## Themes
 
 Three states. `<html>` carries `class="dark"` or `class="light"` when the user
 has chosen, and **nothing** when they follow the system. The choice is stored in
 `localStorage` under `hlm-theme` as `dark` / `light` / `system`. Components never
 read the class; they read tokens.
+
+**Resolve a token to rgba by painting it, not by parsing it.** `_rgba()` in the
+SPA puts the colour on a 1x1 canvas and reads the pixel back. Chrome keeps a
+colour in the space it was authored in, so the computed value of an oklch token
+is still the string `oklch(0.628 0.221 349.1)` - scraping digits out of that
+gives `rgba(1, 0, 349)`, which clamps to blue. That is exactly what happened to
+every §8 single-series area fill until 2026-08-18.
 
 Chart.js is fed the tokens at render time by reading them off
 `getComputedStyle(document.documentElement)`, and the charts are rebuilt on a

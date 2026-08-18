@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- HomeLab Manger is a hosted web app, so it stamps the web scale
+     (STYLE-GUIDE.md §6.5). Nothing else is stamped here; the theme
+     class is added by the script below. -->
+<html lang="en" class="web">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,13 +12,16 @@
 
   <!-- Theme, stamped before first paint so the page never flashes the wrong one.
        Three states: "dark" / "light" stamp a class, "system" stamps nothing and
-       lets prefers-color-scheme decide. See docs/ui-conventions.md. -->
+       lets prefers-color-scheme decide. See docs/ui-conventions.md.
+       Add the class, never assign className: the `web` stamp on <html> is the
+       app's scale (STYLE-GUIDE.md §6.5) and a wholesale assignment erases it. -->
   <script>
     (function () {
+      var r = document.documentElement;
       try {
         var t = localStorage.getItem('hlm-theme') || 'dark';
-        if (t === 'dark' || t === 'light') document.documentElement.className = t;
-      } catch (e) { document.documentElement.className = 'dark'; }
+        if (t === 'dark' || t === 'light') r.classList.add(t);
+      } catch (e) { r.classList.add('dark'); }
     })();
   </script>
 
@@ -285,7 +291,7 @@
             </button>
           </div>
           <div class="t-tiny mt-2">
-            <span x-text="'v' + (appInfo.version || '?')"></span> · Apache-2.0
+            <span x-text="'v' + (appInfo.version || '?')"></span> · GPL-3.0
           </div>
         </div>
       </aside>
@@ -1131,8 +1137,17 @@
             <!-- ── Ports ── -->
             <template x-if="tab === 'ports'">
               <div>
-                <!-- Front-panel visual. A port is a neutral tile with a state dot,
-                     never a colour fill: see STYLE-GUIDE §15.7. -->
+                <!-- Front-panel visual.
+                     STYLE-GUIDE §15.7 says a port is a neutral tile with a state
+                     dot and never a colour fill. This panel is a deliberate
+                     departure, asked for directly: on a 48-port switch the thing
+                     you want to read at a glance is which ports are live, and a
+                     6 px dot per tile does not carry that across a whole row.
+                     So link state is the tile's own fill (good = up, neutral =
+                     down) and the dot in the corner is left to carry PoE.
+                     It is still semantic colour, never the accent. Do not copy
+                     this to any other grid in the app - the rule stands
+                     everywhere else. -->
                 <div x-show="(detail.ports || []).length" class="panel mb-3">
                   <div class="panel-head">
                     <span class="title">Front panel</span>
@@ -1146,16 +1161,14 @@
                             <template x-for="p in row" :key="p.index">
                               <button @click="selectPort(p.index)"
                                       :title="portTooltip(p)"
-                                      :style="`background: var(--control); border-radius: 3px; border: 1px solid ${selectedPort === String(p.index) ? 'var(--accent)' : 'var(--line)'}; box-shadow: ${[selectedPort === String(p.index) ? 'inset 0 0 0 1px var(--accent)' : '', p.combo ? 'inset 0 -2px 0 var(--caution)' : ''].filter(Boolean).join(', ') || 'none'};`"
-                                      class="relative flex flex-col items-center justify-center gap-0.5 w-8 h-8 shrink-0">
-                                <span class="figure"
-                                      :style="`font-size: var(--text-tiny); line-height: 1;${p.adminStatus === 1 ? '' : ' color: var(--text-dim);'}`"
-                                      x-text="p.index"></span>
-                                <span class="dot" :class="p.operStatus === 1 ? 'dot-good' : 'dot-unknown'"></span>
-                                <span x-show="portPoeDot(p)"
-                                      :class="({delivering: 'dot-caution', searching: 'dot-caution', fault: 'dot-critical', otherFault: 'dot-critical'})[poePortData(p.index)?.detectionStatus] || 'dot-unknown'"
-                                      class="dot absolute top-0.5 right-0.5"
-                                      style="width: 4px; height: 4px;"></span>
+                                      :style="portTileStyle(p)"
+                                      class="relative flex items-center justify-center w-8 h-8 shrink-0">
+                                <span class="figure" :style="portNumberStyle(p)" x-text="p.index"></span>
+                                <!-- The corner dot is PoE only: orange while a
+                                     port is delivering power, red on a fault,
+                                     absent otherwise. -->
+                                <span x-show="portPoeDot(p)" :class="portPoeDot(p)"
+                                      class="dot absolute top-0.5 right-0.5"></span>
                               </button>
                             </template>
                           </div>
@@ -1163,10 +1176,10 @@
                       </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 t-tiny">
-                      <span class="inline-flex items-center gap-1"><span class="dot dot-good"></span>Link up</span>
-                      <span class="inline-flex items-center gap-1"><span class="dot dot-unknown"></span>Link down</span>
-                      <span class="inline-flex items-center gap-1"><span class="dot dot-caution" style="width: 4px; height: 4px;"></span>PoE delivering</span>
-                      <span class="inline-flex items-center gap-1"><span class="dot dot-critical" style="width: 4px; height: 4px;"></span>PoE fault</span>
+                      <span class="inline-flex items-center gap-1"><span class="inline-block w-4 h-4" style="background: var(--good); border: 1px solid var(--good); border-radius: 3px;"></span>Link up</span>
+                      <span class="inline-flex items-center gap-1"><span class="inline-block w-4 h-4" style="background: var(--control); border: 1px solid var(--line); border-radius: 3px;"></span>Link down</span>
+                      <span class="inline-flex items-center gap-1"><span class="dot dot-caution"></span>PoE delivering</span>
+                      <span class="inline-flex items-center gap-1"><span class="inline-block w-4 h-4" style="background: var(--control); border: 1px solid var(--critical); border-radius: 3px;"></span><span class="dot dot-critical"></span>PoE fault</span>
                       <span class="inline-flex items-center gap-1"><span class="inline-block w-4 h-4" style="background: var(--control); border: 1px solid var(--line); border-radius: 3px; box-shadow: inset 0 -2px 0 var(--caution);"></span>Combo port</span>
                       <span class="inline-flex items-center gap-1"><span class="inline-block w-4 h-4" style="background: var(--control); border: 1px solid var(--accent); border-radius: 3px; box-shadow: inset 0 0 0 1px var(--accent);"></span>Selected</span>
                     </div>
@@ -4828,13 +4841,27 @@
       // fill has to be resolved to a concrete rgba first. Painting the colour
       // onto a throwaway element and reading it back is the one reliable way to
       // get the browser's own conversion.
+      // A canvas cannot apply alpha to an oklch() token or parse color-mix(),
+      // so the §8 14% area fill has to be resolved to a real rgba first.
+      //
+      // Resolve it by painting one pixel and reading it back, NOT by scraping
+      // digits out of getComputedStyle. Chrome keeps a colour in the space it
+      // was authored in, so the computed value of an oklch token is still the
+      // string `oklch(0.59 0.221 349.1)` — and scraping that yields
+      // rgba(1, 0, 349), which clamps to blue. That is why every single-series
+      // area fill was drawn in lavender instead of the accent.
       _rgba(color, alpha) {
-        const el = document.createElement('span');
-        el.style.color = color; el.style.display = 'none';
-        document.body.appendChild(el);
-        const m = getComputedStyle(el).color.match(/-?[\d.]+/g);
-        el.remove();
-        return m ? `rgba(${Math.round(m[0])}, ${Math.round(m[1])}, ${Math.round(m[2])}, ${alpha})` : color;
+        const c = document.createElement('canvas');
+        c.width = c.height = 1;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        // fillStyle silently ignores a value it cannot parse, so seed a known
+        // ground first: an unreadable token then reads as transparent black
+        // rather than as whatever the last caller happened to leave behind.
+        ctx.fillStyle = '#000';
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 1, 1);
+        const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
       },
 
       chartTokens() {
@@ -5493,12 +5520,22 @@
         return [{ id: 'overview', label: 'Overview', icon: 'i-gauge' }, notif];
       },
 
+      // Swap the theme class without touching anything else on <html>. The
+      // `web` class is the app's scale (STYLE-GUIDE.md §6.5) and lives there
+      // permanently, so a `className = ...` assignment would silently drop the
+      // whole interface back to the desktop sizes.
+      _stampTheme(v) {
+        const root = document.documentElement;
+        root.classList.remove('dark', 'light');
+        if (v === 'dark' || v === 'light') root.classList.add(v);
+      },
+
       setTheme(v) {
         this.theme = v;
         try { localStorage.setItem('hlm-theme', v); } catch (e) { /* private mode */ }
         if (v && v.startsWith('theme:')) { this.applyCustomTheme(v.slice(6)); return; }
         this._clearCustomTheme();
-        document.documentElement.className = (v === 'system' ? '' : v);
+        this._stampTheme(v);
         // Chart.js reads the tokens off the root element at render time, so an
         // existing chart keeps the old theme's colours until it is rebuilt.
         this._rethemeCharts();
@@ -5522,7 +5559,7 @@
           root.style.setProperty('color-scheme', t.scheme);
           // A theme is dark because its base is, so stamp what it says it is:
           // anything still keyed off the class agrees with the tokens.
-          root.className = t.scheme;
+          this._stampTheme(t.scheme);
           root.dataset.hlmTheme = id;
           this._rethemeCharts();
         } catch (e) { this._fallbackTheme(); }
@@ -5542,7 +5579,7 @@
         this._clearCustomTheme();
         this.theme = 'dark';
         try { localStorage.setItem('hlm-theme', 'dark'); } catch (e) {}
-        document.documentElement.className = 'dark';
+        this._stampTheme('dark');
         this._rethemeCharts();
       },
 
@@ -5751,15 +5788,54 @@
         return [odd, even];
       },
 
+      // ── Front-panel tile (§15.7, and the departure noted in the markup) ──
+      // Link state is the tile's fill; PoE is the corner dot. Both decided
+      // here rather than inline in the template, so the two never drift.
+
+      portTileStyle(p) {
+        const up = p.operStatus === 1;
+        const sel = this.selectedPort === String(p.index);
+        const fault = this.portPoeDot(p) === 'dot-critical';
+        // A linked port is filled with `good`; everything else keeps the
+        // neutral control fill. Semantic colour, never the accent.
+        const fill = up ? 'var(--good)' : 'var(--control)';
+        // A PoE fault also takes the tile's edge, not just the corner dot.
+        // The family's caution and critical resolve to #D08770 and #D66F6E -
+        // two colours a 6 px dot cannot tell apart. The dot still marks which
+        // state it is; the edge is what makes a fault findable across 48 ports.
+        const edge = sel ? 'var(--accent)'
+                   : fault ? 'var(--critical)'
+                   : up ? 'var(--good)' : 'var(--line)';
+        const shadow = [
+          sel ? 'inset 0 0 0 1px var(--accent)' : '',
+          p.combo ? 'inset 0 -2px 0 var(--caution)' : '',
+        ].filter(Boolean).join(', ') || 'none';
+        return `background: ${fill}; border-radius: 3px; border: 1px solid ${edge}; box-shadow: ${shadow};`;
+      },
+
+      portNumberStyle(p) {
+        const up = p.operStatus === 1;
+        // `--accent-ink` is the theme's ink for a saturated fill: near-black on
+        // the dark theme, white on the light one. That is exactly what a
+        // `good`-filled tile needs in both, which is why it is borrowed here
+        // even though the fill is not the accent.
+        let ink = 'var(--text-strong)';
+        if (up) ink = 'var(--accent-ink)';
+        else if (p.adminStatus !== 1) ink = 'var(--text-dim)';
+        return `font-size: var(--text-tiny); line-height: 1; color: ${ink};`;
+      },
+
+      // Orange while the port is delivering power, red on a fault, nothing
+      // otherwise - a port with no PD attached must not carry a dot, or every
+      // empty PoE port wears one and the live ones stop standing out.
       portPoeDot(p) {
         const poe = this.poePortData(p.index);
         if (!poe) return '';
         switch (poe.detectionStatus) {
           case 'delivering': return 'dot-caution';
-          case 'searching':  return 'dot-caution';
           case 'fault':
           case 'otherFault': return 'dot-critical';
-          default:           return '';   // disabled / unknown → no dot
+          default:           return '';   // disabled / searching / unknown
         }
       },
 
