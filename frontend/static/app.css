@@ -212,6 +212,20 @@ textarea.input { height: auto; padding: var(--s2) var(--s3); line-height: var(--
 .field-hint  { font-size: var(--text-small); color: var(--text-dim); margin-top: var(--s1); }
 .field-label { display: block; font-size: var(--text-control); color: var(--text); margin-bottom: var(--s1); }
 
+/* A field flanked by fixed affixes - a scheme prefix, a domain suffix that may
+   be a picker. The field keeps a floor of its own so a long affix can never
+   squeeze it shut, and the picker is sized by its own content. Do not reach for
+   a Tailwind w-* utility on the picker instead: `select.input` above sets
+   width:100% at one-class-plus-element specificity, so a utility loses to it
+   and the picker silently takes the whole row. The picker's width is stated
+   rather than left on auto, because Chrome sizes an appearance:none select
+   from its longest option plus only a token arrow allowance - it ignores most
+   of the 28 px we reserve for the drawn chevron, and the text clips. */
+.field-row { display: flex; align-items: center; gap: var(--s2); }
+.field-row > .input        { flex: 1 1 0; min-width: 10ch; }
+.field-row > select.input  { flex: 0 1 auto; width: 12rem; min-width: 0; }
+.field-row > .figure       { flex: 0 0 auto; white-space: nowrap; }
+
 .search { position: relative; }
 .search .input { padding-left: calc(var(--icon) + var(--s3) + var(--s1)); }
 .search .search-icon { position: absolute; left: var(--s2); top: 50%; transform: translateY(-50%);

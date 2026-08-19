@@ -2619,9 +2619,9 @@
           </div>
           <div>
             <label class="field-label">Public address</label>
-            <div class="flex items-center gap-2">
+            <div class="field-row">
               <span class="figure">https://</span>
-              <input x-model="serviceModal.form.subdomain" class="input flex-1" placeholder="jellyfin"
+              <input x-model="serviceModal.form.subdomain" class="input" placeholder="jellyfin"
                      :disabled="serviceModal.mode === 'import'">
               <!-- Domain: static suffix for imports and single-domain configs,
                    a picker when several domains are configured -->
@@ -2631,7 +2631,7 @@
                                      : (serviceModal.form.domain || ncDomains[0] || '…'))"></span>
               </template>
               <template x-if="serviceModal.mode !== 'import' && ncDomains.length > 1">
-                <select x-model="serviceModal.form.domain" class="input w-48">
+                <select x-model="serviceModal.form.domain" class="input">
                   <template x-for="d in ncDomains" :key="d">
                     <option :value="d" x-text="'.' + d"></option>
                   </template>
